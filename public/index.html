@@ -692,6 +692,7 @@ let fpPitch=0;           // first-person vertical aim in RADIANS (neg=down, pos=
 const ADS_SPEED=12;      // transition speed
 const ADS_FOV_MULT=0.70; // FOV multiplier for non-scoped ADS
 const ADS_FOV_SCOPE=0.30;// FOV multiplier for scoped weapons (sniper)
+const ADS_FOV_MELEE=0.80;// FOV multiplier for melee ADS (knife/katana — slight zoom)
 const ADS_SENS_MULT=0.45;// sensitivity reduction while ADS
 const ADS_EYE_HEIGHT=1.55;// eye/head height for first-person camera
 const GUN_POS_HIP  = new THREE.Vector3(.4, 1.1, -.05);
@@ -712,6 +713,7 @@ const rollDir = new THREE.Vector3();
 const keys    = {};
 const bullets = [], particles = [], zombies = [];
 const powerupDrops = []; // active powerup orbs on the ground
+let nextPwrDropId = 0;   // unique ID counter for powerup drops (multiplayer sync)
 
 // Powerup active timers (seconds remaining, 0 = inactive)
 const pwrState = { instaKill:0, instaKillMax:20, kaboom:0, kaboomMax:15 };
@@ -2058,6 +2060,14 @@ function buildFPWeapon(){
     fpGunGrp.position.set(.2, -.22, -.45);
     fpArmR.position.set(.28, -.25, -.3);
     fpArmL.position.set(-.1, -.3, -.48);
+  } else if(key === 'knife'){
+    fpGunGrp.position.set(.2, -.2, -.4);
+    fpArmR.position.set(.24, -.22, -.3);
+    fpArmL.position.set(-.2, -.3, -.35);
+  } else if(key === 'fists'){
+    fpGunGrp.position.set(.0, -.18, -.35);
+    fpArmR.position.set(.2, -.2, -.3);
+    fpArmL.position.set(-.2, -.2, -.3);
   } else {
     fpGunGrp.position.set(.22, -.22, -.5);
     fpArmR.position.set(.28, -.25, -.35);
@@ -2432,8 +2442,8 @@ function updateGunVisual(){
   const g=currentGun();
   const key = g.key || (knifeActive ? 'knife' : 'fists');
   buildWeaponModel(key, g.color, g.packed);
-  // Exit ADS when switching weapons
-  adsActive=false; fpPitch=0;
+  // Don't force-exit ADS on weapon switch — player can stay zoomed in with knife/katana
+  // The FP weapon model rebuilds automatically via buildFPWeapon() when the key changes
 }
 
 // ══════════════════════════════════════════════════
@@ -2484,6 +2494,11 @@ function spawnBullet(){
   // Knife melee — instant hit on zombies within range
   if(g.melee){
     gunGrp.rotation.x=-0.8; setTimeout(()=>gunGrp.rotation.x=0,160);
+    // First-person slash animation (when zoomed in with knife/katana)
+    if(adsLerp > 0.5){
+      fpGunGrp.rotation.x=-0.9; fpGunGrp.rotation.z=0.3;
+      setTimeout(()=>{ fpGunGrp.rotation.x=0; fpGunGrp.rotation.z=0; },180);
+    }
     const KNIFE_RANGE = (knifeActive && knifePacked) ? 3.2 : 2.2;
     // Exact forward direction from camera yaw
     const fwd=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
@@ -2678,7 +2693,8 @@ function tryDropPowerup(deadPos){
   }
 }
 
-function spawnPowerupOrb(pw, p){
+function spawnPowerupOrb(pw, p, existingDropId){
+  const dropId = (existingDropId !== undefined) ? existingDropId : nextPwrDropId++;
   const orb = new THREE.Mesh(
     new THREE.SphereGeometry(0.35,10,10),
     new THREE.MeshLambertMaterial({color:pw.color,transparent:true,opacity:.9})
@@ -2692,7 +2708,12 @@ function spawnPowerupOrb(pw, p){
     new THREE.MeshBasicMaterial({color:pw.color})
   );
   ring.position.copy(orb.position); scene.add(ring);
-  powerupDrops.push({ pw, orb, glow, ring, life:18, bobT:0 });
+  powerupDrops.push({ pw, orb, glow, ring, life:18, bobT:0, dropId });
+
+  // Host broadcasts powerup spawn to all clients so they can see & pick it up
+  if(existingDropId === undefined && mpMode!=='solo' && socket && socket.connected && isHost){
+    socket.emit('powerup_spawned', { dropId, powerupId: pw.id, position: {x:p.x, z:p.z} });
+  }
 }
 
 function showPowerupBanner(pw){
@@ -2752,9 +2773,13 @@ function tickPowerups(dt){
     d.ring.rotation.y += dt*2;
     d.ring.rotation.x += dt*1.2;
     d.orb.material.opacity = 0.7+Math.sin(d.bobT*4)*0.2;
-    // Player pickup
+    // Player pickup — any player can pick up the orb
     if(pos.distanceTo(d.orb.position)<1.6){
       activatePowerup(d.pw);
+      // In multiplayer, share powerup with all teammates
+      if(mpMode!=='solo' && socket && socket.connected){
+        socket.emit('powerup_collected', { dropId: d.dropId, powerupId: d.pw.id });
+      }
       scene.remove(d.orb); scene.remove(d.glow); scene.remove(d.ring);
       powerupDrops.splice(i,1);
     }
@@ -3361,14 +3386,6 @@ document.addEventListener('contextmenu',e=>{ e.preventDefault(); });
 function tryADS(on){
   if(!alive || paused) return;
   if(on){
-    // Auto-switch from melee to a ranged weapon if available
-    const g = currentGun();
-    if(g && g.melee){
-      // Try slot 1 first (pistol), then slot 0
-      for(let s=0;s<inventory.length;s++){
-        if(inventory[s] && !inventory[s].melee){ knifeActive=false; activeSlot=s; updateGunVisual(); updateHUD(); break; }
-      }
-    }
     fpPitch=0; // start looking level when entering ADS
     adsActive=true;
   } else {
@@ -3569,15 +3586,16 @@ function tick(dt,ts){
   // ══════════════════════════════════════════════════
   const curGunADS = currentGun();
   const isScoped = (curGunADS.key === 'sniper');
-  const adsTarget = (adsActive && alive && !downed && !paused && !curGunADS.melee) ? 1 : 0;
+  const isMelee  = !!curGunADS.melee;
+  const adsTarget = (adsActive && alive && !downed && !paused) ? 1 : 0;
   adsLerp += (adsTarget - adsLerp) * Math.min(1, ADS_SPEED * dt);
   if(Math.abs(adsLerp - adsTarget) < 0.005) adsLerp = adsTarget;
   const t = adsLerp; // 0 = full 3rd person, 1 = full 1st person
   const inFP = t > 0.5; // binary: are we in first-person mode?
 
-  // ── FOV ──
+  // ── FOV ── (melee gets a lighter zoom, sniper gets heavy zoom)
   const baseFov = SETTINGS.fov;
-  const fovMult = isScoped ? ADS_FOV_SCOPE : ADS_FOV_MULT;
+  const fovMult = isScoped ? ADS_FOV_SCOPE : isMelee ? ADS_FOV_MELEE : ADS_FOV_MULT;
   cam.fov = baseFov * (1 - t * (1 - fovMult));
   cam.updateProjectionMatrix();
 
@@ -3760,7 +3778,7 @@ function tick(dt,ts){
           b.pierced++;
           // Broadcast hit effect to other players
           if(mpMode !== 'solo'){
-            socket.emit('bullet_hit', { pos:{x:hitPos.x,y:hitPos.y,z:hitPos.z}, explosive:false, fire:!!b.fire });
+            socket.emit('bullet_hit', { pos:{x:hitPos.x,y:hitPos.y,z:hitPos.z}, origin:{x:pos.x,y:1.1,z:pos.z}, explosive:false, fire:!!b.fire, gunKey:b.gunKey||'' });
           }
           if(b.pierce > 0 && b.pierced <= b.pierce){
             // Bullet penetrates — keep going, reduce damage per pierce
@@ -3773,7 +3791,7 @@ function tick(dt,ts){
         }
         // Broadcast hit effect for explosive
         if(b.explosive && mpMode !== 'solo'){
-          socket.emit('bullet_hit', { pos:{x:hitPos.x,y:hitPos.y,z:hitPos.z}, explosive:true, fire:!!b.fire });
+          socket.emit('bullet_hit', { pos:{x:hitPos.x,y:hitPos.y,z:hitPos.z}, origin:{x:pos.x,y:1.1,z:pos.z}, explosive:true, fire:!!b.fire, gunKey:b.gunKey||'' });
         }
         if(removeBullet){ scene.remove(b.mesh); bullets.splice(i,1); break; }
       }
@@ -4972,20 +4990,135 @@ let isHost      = false;
 let remotePlayers = {};     // id -> { mesh, data }
 let mpReady     = false;
 
-// ── Build remote player mesh (same blocky style, different color) ──
-function makeRemotePlayer(colorIdx){
+// ── Build remote player mesh (full body with arms, legs, gun, and name label) ──
+function makeRemotePlayer(colorIdx, playerName){
   const col = PLAYER_COLORS[colorIdx] || 0xffffff;
   const g   = new THREE.Group();
+
+  // Body (child 0)
   const body= new THREE.Mesh(new THREE.BoxGeometry(.6,1,.4), new THREE.MeshLambertMaterial({color:col}));
   body.position.y=.9; g.add(body);
+
+  // Head (child 1)
   const head= new THREE.Mesh(new THREE.BoxGeometry(.45,.45,.45), new THREE.MeshLambertMaterial({color:0xffcc99}));
   head.position.y=1.62; g.add(head);
-  const ll  = new THREE.Mesh(new THREE.BoxGeometry(.22,.58,.22), new THREE.MeshLambertMaterial({color:col}));
-  ll.position.set(-.16,.28,0); g.add(ll);
-  const lr  = new THREE.Mesh(new THREE.BoxGeometry(.22,.58,.22), new THREE.MeshLambertMaterial({color:col}));
-  lr.position.set(.16,.28,0); g.add(lr);
+
+  // Leg pivots (children 2,3) — rotate at hip
+  const legLPivot = new THREE.Group(); legLPivot.position.set(-.18,.625,0); g.add(legLPivot);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(.22,.6,.22), new THREE.MeshLambertMaterial({color:col}));
+  legL.position.set(0,-.3,0); legLPivot.add(legL);
+
+  const legRPivot = new THREE.Group(); legRPivot.position.set(.18,.625,0); g.add(legRPivot);
+  const legR = new THREE.Mesh(new THREE.BoxGeometry(.22,.6,.22), new THREE.MeshLambertMaterial({color:col}));
+  legR.position.set(0,-.3,0); legRPivot.add(legR);
+
+  // Arm pivots (children 4,5) — rotate at shoulder
+  const armLPivot = new THREE.Group(); armLPivot.position.set(-.44,1.1,-.05); g.add(armLPivot);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(.18,.48,.18), new THREE.MeshLambertMaterial({color:col}));
+  armL.position.set(0,-.24,0); armLPivot.add(armL);
+
+  const armRPivot = new THREE.Group(); armRPivot.position.set(.44,1.1,-.05); g.add(armRPivot);
+  const armR = new THREE.Mesh(new THREE.BoxGeometry(.18,.48,.18), new THREE.MeshLambertMaterial({color:col}));
+  armR.position.set(0,-.24,0); armRPivot.add(armR);
+
+  // Gun group (child 6) — holds simple weapon model
+  const rGunGrp = new THREE.Group();
+  rGunGrp.position.set(.38, 1.0, -.25);
+  g.add(rGunGrp);
+  buildRemoteWeaponModel(rGunGrp, 'pistol', false);
+
+  // Muzzle flash light (inside gun group)
+  const rMuzzle = new THREE.PointLight(0xffaa44,0,4);
+  rMuzzle.position.set(0,0,-.5);
+  rGunGrp.add(rMuzzle);
+
+  // Name label sprite (child 7)
+  const nameSprite = makeNameSprite(playerName || 'Player', col);
+  nameSprite.position.set(0, 2.15, 0);
+  g.add(nameSprite);
+
   scene.add(g);
   return g;
+}
+
+// ── Create a text sprite for player name labels ──
+function makeNameSprite(name, color){
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 256; canvas.height = 64;
+  ctx.clearRect(0,0,256,64);
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  const r = 8;
+  ctx.beginPath();
+  // roundRect fallback for older browsers
+  if(ctx.roundRect){
+    ctx.roundRect(4, 4, 248, 56, r);
+  } else {
+    ctx.rect(4, 4, 248, 56);
+  }
+  ctx.fill();
+  // Text
+  ctx.font = 'bold 28px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Color outline
+  const hex = '#' + (color & 0xffffff).toString(16).padStart(6,'0');
+  ctx.strokeStyle = hex;
+  ctx.lineWidth = 3;
+  ctx.strokeText(name, 128, 32);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(name, 128, 32);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.8, 0.45, 1);
+  return sprite;
+}
+
+// ── Build a simple weapon model for remote players ──
+function buildRemoteWeaponModel(grp, gunKey, packed){
+  // Remove old weapon parts (keep muzzle light if present)
+  for(let i=grp.children.length-1; i>=0; i--){
+    if(grp.children[i].isLight) continue;
+    grp.remove(grp.children[i]);
+  }
+  const wc = packed ? 0xaa44ff : 0x555555;
+  const mat = new THREE.MeshLambertMaterial({color:wc});
+  if(packed){ mat.emissive = new THREE.Color(0xaa22ff); mat.emissiveIntensity = 0.3; }
+
+  if(gunKey === 'knife'){
+    // Blade
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.35), mat);
+    blade.position.set(0,0,-.2); grp.add(blade);
+    // Handle
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.06,.12,.06),
+      new THREE.MeshLambertMaterial({color:0x443322}));
+    grp.add(handle);
+  } else if(gunKey === 'shotgun'){
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.55), mat); barrel.position.z=-.3; grp.add(barrel);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(.08,.12,.2), new THREE.MeshLambertMaterial({color:0x664422})); stock.position.z=.1; grp.add(stock);
+  } else if(gunKey === 'sniper'){
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.7), mat); barrel.position.z=-.38; grp.add(barrel);
+    const scope = new THREE.Mesh(new THREE.BoxGeometry(.06,.08,.15), new THREE.MeshLambertMaterial({color:0x222222})); scope.position.set(0,.06,-.25); grp.add(scope);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(.08,.12,.18), new THREE.MeshLambertMaterial({color:0x443322})); stock.position.z=.08; grp.add(stock);
+  } else if(gunKey === 'rpg'){
+    const tube = new THREE.Mesh(new THREE.BoxGeometry(.12,.12,.6), mat); tube.position.z=-.3; grp.add(tube);
+  } else if(gunKey === 'minigun' || gunKey === 'lmg'){
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.55), mat); barrel.position.z=-.3; grp.add(barrel);
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(.12,.15,.12), new THREE.MeshLambertMaterial({color:0x333333})); mag.position.set(0,-.08,0); grp.add(mag);
+  } else if(gunKey === 'flamethrower'){
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.5), mat); body.position.z=-.28; grp.add(body);
+    const tank = new THREE.Mesh(new THREE.BoxGeometry(.12,.18,.12), new THREE.MeshLambertMaterial({color:0x884400})); tank.position.set(0,-.06,.05); grp.add(tank);
+  } else if(gunKey === 'fists'){
+    // No weapon model for fists
+  } else {
+    // Default: pistol / smg / ak47 / plasma — generic gun shape
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.4), mat); barrel.position.z=-.22; grp.add(barrel);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(.06,.1,.06), new THREE.MeshLambertMaterial({color:0x333333})); grip.position.set(0,-.06,0); grp.add(grip);
+  }
 }
 
 // ── Lobby player list renderer ──────────────────────
@@ -5129,9 +5262,9 @@ socket.on('game_start', (data) => {
   // Set up remote player meshes
   players.forEach(p => {
     if(p.id === socket.id) return;
-    const mesh = makeRemotePlayer(p.color);
+    const mesh = makeRemotePlayer(p.color, p.name);
     mesh.position.set(PLAYER_SPAWNS[p.spawnIdx].x, 0, PLAYER_SPAWNS[p.spawnIdx].z);
-    remotePlayers[p.id] = { mesh, data: p };
+    remotePlayers[p.id] = { mesh, data: p, lastGunKey:'pistol', prevPos:{x:0,z:0}, walkPhase:0 };
   });
   // Start game with correct spawn
   const mySpawn = PLAYER_SPAWNS[mySpawnIdx];
@@ -5314,14 +5447,57 @@ function tickMPSend(dt){
 function tickRemotePlayers(dt){
   for(const id in remotePlayers){
     const rp = remotePlayers[id];
+    if(!rp.prevPos) rp.prevPos = {x: rp.mesh.position.x, z: rp.mesh.position.z};
+    if(!rp.walkPhase) rp.walkPhase = 0;
+
     // Smooth interpolation toward target position
     if(rp.targetPos){
       rp.mesh.position.x += (rp.targetPos.x - rp.mesh.position.x) * Math.min(1, dt * 15);
       rp.mesh.position.z += (rp.targetPos.z - rp.mesh.position.z) * Math.min(1, dt * 15);
     }
-    // Simple leg animation based on movement
-    if(rp.mesh.children[2]) rp.mesh.children[2].position.y = .28 + Math.sin(Date.now()*.008)*.1;
-    if(rp.mesh.children[3]) rp.mesh.children[3].position.y = .28 - Math.sin(Date.now()*.008)*.1;
+
+    // Detect movement speed for animations
+    const dx = rp.mesh.position.x - rp.prevPos.x;
+    const dz = rp.mesh.position.z - rp.prevPos.z;
+    const speed = Math.sqrt(dx*dx + dz*dz) / Math.max(dt, 0.001);
+    const isMoving = speed > 0.3;
+    rp.prevPos.x = rp.mesh.position.x;
+    rp.prevPos.z = rp.mesh.position.z;
+
+    // Walk animation — legs and arms swing when moving
+    if(isMoving){
+      rp.walkPhase += dt * 10;
+    } else {
+      // Smoothly return to idle
+      rp.walkPhase *= 0.9;
+    }
+    const sinP = Math.sin(rp.walkPhase);
+    const swingAmt = isMoving ? 0.5 : sinP * 0.05;
+
+    // Children layout: 0=body, 1=head, 2=legLPivot, 3=legRPivot, 4=armLPivot, 5=armRPivot, 6=gunGrp, 7=nameSprite
+    const legLPivot = rp.mesh.children[2];
+    const legRPivot = rp.mesh.children[3];
+    const armLPivot = rp.mesh.children[4];
+    const armRPivot = rp.mesh.children[5];
+    const rGunGrp   = rp.mesh.children[6];
+
+    if(legLPivot) legLPivot.rotation.x = sinP * swingAmt;
+    if(legRPivot) legRPivot.rotation.x = -sinP * swingAmt;
+    if(armLPivot) armLPivot.rotation.x = -sinP * swingAmt * 0.7;
+    // Right arm holds gun — less swing, slight forward tilt
+    if(armRPivot) armRPivot.rotation.x = sinP * swingAmt * 0.3 - 0.5;
+
+    // Update weapon model if gun changed
+    const curGunKey = rp.data.gun || 'pistol';
+    const curKnife  = rp.data.knifeActive;
+    const effectiveGun = curKnife ? 'knife' : curGunKey;
+    if(rp.lastGunKey !== effectiveGun){
+      rp.lastGunKey = effectiveGun;
+      if(rGunGrp) buildRemoteWeaponModel(rGunGrp, effectiveGun, false);
+    }
+
+    // Name sprite always faces camera (billboarding is automatic for THREE.Sprite)
+    // No extra code needed — Sprite always faces camera by default
   }
 }
 
@@ -5452,13 +5628,102 @@ socket.on('client_zombie_hit', data => {
   }
 });
 
-// ── Client: see remote player bullet effects ──────────
+// ── Client: see remote player bullet effects + tracers ──────────
 socket.on('bullet_hit', data => {
   if(data.from === socket.id) return; // ignore own
   if(data.pos){
-    bloodBurst(new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z), data.fire ? 0xff4400 : 0x880000);
+    const hitVec = new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z);
+    bloodBurst(hitVec, data.fire ? 0xff4400 : 0x880000);
     if(data.explosive){
-      explosionBurst(new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z));
+      explosionBurst(hitVec);
+    }
+    // Spawn visible tracer from shooter position to hit position
+    if(data.origin && data.gunKey !== 'knife' && data.gunKey !== 'fists'){
+      const originVec = new THREE.Vector3(data.origin.x, data.origin.y, data.origin.z);
+      spawnRemoteTracer(originVec, hitVec, data.fire, data.gunKey);
+    }
+    // Trigger muzzle flash on the remote player's gun
+    if(data.from && remotePlayers[data.from]){
+      const rGunGrp = remotePlayers[data.from].mesh.children[6];
+      if(rGunGrp){
+        // Find the muzzle light in the gun group
+        for(const child of rGunGrp.children){
+          if(child.isLight){
+            child.intensity = 5;
+            setTimeout(()=>{ child.intensity = 0; }, 55);
+            break;
+          }
+        }
+        // Recoil animation
+        rGunGrp.rotation.x = -0.12;
+        setTimeout(()=>{ rGunGrp.rotation.x = 0; }, 70);
+      }
+    }
+  }
+});
+
+// ── Spawn a fast tracer line from remote player to hit point ──
+function spawnRemoteTracer(origin, hit, isFire, gunKey){
+  const isSniper = (gunKey === 'sniper');
+  const isRPG = (gunKey === 'rpg');
+  const col = isFire ? 0xff4400 : isSniper ? 0x44ddff : isRPG ? 0xff6600 : 0xffdd44;
+  const radius = isRPG ? 0.06 : isSniper ? 0.02 : 0.03;
+
+  const dir = hit.clone().sub(origin);
+  const dist = dir.length();
+  const tracerLen = Math.min(dist, 1.5);
+
+  const bm = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, tracerLen, 4),
+    new THREE.MeshBasicMaterial({color: col})
+  );
+  // Orient tracer along the direction of travel
+  bm.position.copy(origin).lerp(hit, 0.5);
+  bm.lookAt(hit);
+  bm.rotateX(Math.PI/2);
+  scene.add(bm);
+
+  // Animate tracer: move quickly to hit point then remove
+  const spd = 60;
+  const dirN = dir.normalize();
+  const startT = performance.now();
+  const maxLife = dist / spd + 0.08;
+  function animTracer(){
+    const elapsed = (performance.now() - startT) / 1000;
+    if(elapsed > maxLife){
+      scene.remove(bm);
+      return;
+    }
+    const t = Math.min(elapsed * spd / dist, 1);
+    bm.position.copy(origin).lerp(hit, t);
+    requestAnimationFrame(animTracer);
+  }
+  requestAnimationFrame(animTracer);
+}
+
+// ── Host spawned a powerup orb — create it locally so we can see & pick it up ──
+socket.on('powerup_spawned', ({ dropId, powerupId, position }) => {
+  const pw = POWERUPS.find(p => p.id === powerupId);
+  if(!pw) return;
+  spawnPowerupOrb(pw, new THREE.Vector3(position.x, 0, position.z), dropId);
+});
+
+// ── Shared powerups: when a teammate picks one up, activate it for us too ──
+socket.on('powerup_collected', ({ dropId, powerupId, collectorName }) => {
+  const pw = POWERUPS.find(p => p.id === powerupId);
+  if(!pw) return;
+  activatePowerup(pw);
+  addFeed('⚡ ' + collectorName + ' shared ' + pw.label + '!');
+  // Remove the orb from our screen if it still exists
+  if(dropId !== undefined){
+    for(let i=powerupDrops.length-1; i>=0; i--){
+      if(powerupDrops[i].dropId === dropId){
+        scene.remove(powerupDrops[i].orb);
+        scene.remove(powerupDrops[i].glow);
+        scene.remove(powerupDrops[i].ring);
+        powerupDrops.splice(i,1);
+        break;
+      }
     }
   }
 });
