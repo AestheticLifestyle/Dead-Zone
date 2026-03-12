@@ -2034,8 +2034,10 @@ function buildFPWeapon(){
   }
   const g = currentGun();
   const key = g.key || (knifeActive ? 'knife' : 'fists');
-  if(key === fpCurrentWeaponKey) return;
-  fpCurrentWeaponKey = key;
+  // Include packed state in cache key so katana vs knife rebuilds properly
+  const cacheKey = key + (g.packed ? '_pap' : '');
+  if(cacheKey === fpCurrentWeaponKey) return;
+  fpCurrentWeaponKey = cacheKey;
   for(const child of gunPartsGrp.children){
     const clone = child.clone();
     clone.material = child.material.clone();
@@ -2060,6 +2062,11 @@ function buildFPWeapon(){
     fpGunGrp.position.set(.2, -.22, -.45);
     fpArmR.position.set(.28, -.25, -.3);
     fpArmL.position.set(-.1, -.3, -.48);
+  } else if(key === 'knife' && knifePacked){
+    // Katana — held two-handed, longer blade extends forward
+    fpGunGrp.position.set(.12, -.16, -.45);
+    fpArmR.position.set(.2, -.2, -.28);
+    fpArmL.position.set(-.05, -.24, -.38);
   } else if(key === 'knife'){
     fpGunGrp.position.set(.2, -.2, -.4);
     fpArmR.position.set(.24, -.22, -.3);
@@ -2104,14 +2111,54 @@ function buildWeaponModel(key, color, isPacked){
       bx(.16,.04,.04,0xb08050,.1,.08,-.14);
       break;
     case 'knife':
-      // Handle (wrapped grip)
-      bx(.06,.08,.18,0x4a3520,0,0,.06);
-      // Guard
-      bx(.1,.03,.02,0x888888,0,0,-.04);
-      // Blade — long, tapered
-      bx(.04,.015,.32,0xccccdd,0,.01,-.23);
-      // Blade edge highlight
-      bx(.005,.018,.3,0xffffff,-.02,.01,-.23);
+      if(isPacked){
+        // ═══ KATANA — distinct Japanese sword model ═══
+        // Long wrapped handle (tsuka)
+        bx(.045,.055,.28,0x1a0a2a,0,0,.12);
+        // Handle wrap pattern (diamond ito wrap)
+        bx(.05,.02,.05,0xff00cc,0,.03,.18,0xff00cc);
+        bx(.05,.02,.05,0xff00cc,0,.03,.1,0xff00cc);
+        bx(.05,.02,.05,0xff00cc,0,.03,.02,0xff00cc);
+        // Circular guard (tsuba)
+        const tsuba = new THREE.Mesh(
+          new THREE.CylinderGeometry(.07,.07,.012,12),
+          mat(0x222222,0xff00cc)
+        );
+        tsuba.position.set(0,0,-.04); tsuba.rotation.x=Math.PI/2;
+        tsuba.castShadow=true; gunPartsGrp.add(tsuba);
+        // Guard accent ring
+        const tsubaRing = new THREE.Mesh(
+          new THREE.TorusGeometry(.065,.008,6,16),
+          mat(0xff00cc,0xff00cc)
+        );
+        tsubaRing.position.set(0,0,-.04); tsubaRing.rotation.x=Math.PI/2;
+        gunPartsGrp.add(tsubaRing);
+        // Long curved blade — katana is much longer than knife
+        bx(.035,.012,.52,0xe8e8f0,0,.006,-.32);
+        // Back ridge of blade (shinogi)
+        bx(.008,.016,.5,0xbbbbcc,.016,.006,-.31);
+        // Cutting edge highlight (ha) — bright glowing edge
+        const edgeMat = new THREE.MeshLambertMaterial({color:0xffffff, emissive:new THREE.Color(0xff44cc), emissiveIntensity:0.6});
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.014,.5), edgeMat);
+        edge.position.set(-.018,.006,-.31); edge.castShadow=true; gunPartsGrp.add(edge);
+        // Blade tip (kissaki) — angled
+        const tipMat = new THREE.MeshLambertMaterial({color:0xe8e8f0, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.4});
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.04), tipMat);
+        tip.position.set(0,.006,-.585); tip.rotation.y=0.3;
+        tip.castShadow=true; gunPartsGrp.add(tip);
+        // Pommel cap (kashira)
+        bx(.05,.06,.03,0x222222,0,0,.27,0xff00cc);
+      } else {
+        // ═══ STANDARD KNIFE ═══
+        // Handle (wrapped grip)
+        bx(.06,.08,.18,0x4a3520,0,0,.06);
+        // Guard
+        bx(.1,.03,.02,0x888888,0,0,-.04);
+        // Blade — long, tapered
+        bx(.04,.015,.32,0xccccdd,0,.01,-.23);
+        // Blade edge highlight
+        bx(.005,.018,.3,0xffffff,-.02,.01,-.23);
+      }
       break;
     case 'pistol':
       // Slide (top)
@@ -3062,7 +3109,7 @@ function buyPerkFromMenu(perkId){
       pos: {x:pos.x,y:pos.y,z:pos.z},
       rot: playerMesh.rotation.y,
       health, gun: currentGun().key||'pistol',
-      knifeActive, alive, downed,
+      knifeActive, knifePacked, alive, downed,
       perks: playerPerks.slice()
     });
   }
@@ -5089,11 +5136,27 @@ function buildRemoteWeaponModel(grp, gunKey, packed){
   const mat = new THREE.MeshLambertMaterial({color:wc});
   if(packed){ mat.emissive = new THREE.Color(0xaa22ff); mat.emissiveIntensity = 0.3; }
 
-  if(gunKey === 'knife'){
-    // Blade
+  if(gunKey === 'knife' && packed){
+    // Katana — long glowing blade
+    const katMat = new THREE.MeshLambertMaterial({color:0xe8e8f0, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.5});
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.55), katMat);
+    blade.position.set(0,0,-.3); grp.add(blade);
+    // Edge glow
+    const edgeMat = new THREE.MeshLambertMaterial({color:0xff44cc, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.7});
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.014,.52), edgeMat);
+    edge.position.set(-.016,0,-.3); grp.add(edge);
+    // Handle
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.04,.05,.25),
+      new THREE.MeshLambertMaterial({color:0x1a0a2a}));
+    handle.position.set(0,0,.1); grp.add(handle);
+    // Guard (tsuba)
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(.08,.06,.012),
+      new THREE.MeshLambertMaterial({color:0x222222, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.3}));
+    guard.position.set(0,0,-.03); grp.add(guard);
+  } else if(gunKey === 'knife'){
+    // Standard knife
     const blade = new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.35), mat);
     blade.position.set(0,0,-.2); grp.add(blade);
-    // Handle
     const handle = new THREE.Mesh(new THREE.BoxGeometry(.06,.12,.06),
       new THREE.MeshLambertMaterial({color:0x443322}));
     grp.add(handle);
@@ -5398,6 +5461,64 @@ socket.on('respawn_dead_players', ({ players }) => {
   }
 });
 
+// ── Force wave end + respawn (all players died, but game continues) ──
+socket.on('force_wave_end_respawn', ({ players }) => {
+  // Clear all zombies
+  for(const z of zombies){
+    if(z.mesh) scene.remove(z.mesh);
+  }
+  zombies.length = 0;
+  zombsLeft = 0;
+  waveActive = false;
+
+  // Respawn local player
+  if(deadThisRound || !alive){
+    respawnFromDead();
+  }
+  // Also fix downed state (in case we were still downed, not dead yet)
+  if(downed){
+    downed = false; downedTimer = 0; beingRevived = false;
+    alive = true; health = 100;
+    document.getElementById('downedOverlay').classList.remove('on');
+    document.getElementById('downedText').classList.remove('on');
+    document.getElementById('reviveBar').classList.remove('on');
+    if(SETTINGS.showCrosshair) document.getElementById('xhair').classList.add('show');
+    const sp = PLAYER_SPAWNS[mySpawnIdx] || PLAYER_SPAWNS[0];
+    pos.set(sp.x, sp.y, sp.z);
+    playerMesh.position.copy(pos);
+    updateGunVisual(); updateHUD();
+  }
+
+  // Respawn remote players
+  for(const p of players){
+    if(p.id === socket.id) continue;
+    if(remotePlayers[p.id]){
+      remotePlayers[p.id].data.alive = true;
+      remotePlayers[p.id].data.downed = false;
+      remotePlayers[p.id].mesh.visible = true;
+      remotePlayers[p.id].mesh.rotation.z = 0;
+      remotePlayers[p.id].mesh.position.y = 0;
+      const sp = PLAYER_SPAWNS[p.spawnIdx] || PLAYER_SPAWNS[0];
+      if(sp){
+        remotePlayers[p.id].mesh.position.set(sp.x, 0, sp.z);
+        remotePlayers[p.id].targetPos = { x: sp.x, y: 0, z: sp.z };
+      }
+      if(remotePlayers[p.id].downedLight){
+        remotePlayers[p.id].mesh.remove(remotePlayers[p.id].downedLight);
+        remotePlayers[p.id].downedLight = null;
+      }
+    }
+  }
+
+  addFeedSafe('Everyone died! Respawning for next wave...');
+  showBanner('RESPAWNING');
+
+  // Host starts the next wave after a short delay
+  if(isHost){
+    waveDelay = 4;
+  }
+});
+
 socket.on('feed_msg', ({ name, text }) => {
   addFeedSafe('['+name+'] '+text);
 });
@@ -5416,6 +5537,7 @@ function tickMPSend(dt){
     health:     health,
     gun:        g.key||'pistol',
     knifeActive,
+    knifePacked,
     alive,
     downed
   });
@@ -5487,13 +5609,15 @@ function tickRemotePlayers(dt){
     // Right arm holds gun — less swing, slight forward tilt
     if(armRPivot) armRPivot.rotation.x = sinP * swingAmt * 0.3 - 0.5;
 
-    // Update weapon model if gun changed
+    // Update weapon model if gun or packed state changed
     const curGunKey = rp.data.gun || 'pistol';
     const curKnife  = rp.data.knifeActive;
+    const curKnifePacked = !!rp.data.knifePacked;
     const effectiveGun = curKnife ? 'knife' : curGunKey;
-    if(rp.lastGunKey !== effectiveGun){
-      rp.lastGunKey = effectiveGun;
-      if(rGunGrp) buildRemoteWeaponModel(rGunGrp, effectiveGun, false);
+    const gunCacheKey = effectiveGun + (curKnife && curKnifePacked ? '_katana' : '');
+    if(rp.lastGunKey !== gunCacheKey){
+      rp.lastGunKey = gunCacheKey;
+      if(rGunGrp) buildRemoteWeaponModel(rGunGrp, effectiveGun, curKnife && curKnifePacked);
     }
 
     // Name sprite always faces camera (billboarding is automatic for THREE.Sprite)
