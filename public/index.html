@@ -2756,11 +2756,6 @@ function spawnPowerupOrb(pw, p, existingDropId){
   );
   ring.position.copy(orb.position); scene.add(ring);
   powerupDrops.push({ pw, orb, glow, ring, life:18, bobT:0, dropId });
-
-  // Host broadcasts powerup spawn to all clients so they can see & pick it up
-  if(existingDropId === undefined && mpMode!=='solo' && socket && socket.connected && isHost){
-    socket.emit('powerup_spawned', { dropId, powerupId: pw.id, position: {x:p.x, z:p.z} });
-  }
 }
 
 function showPowerupBanner(pw){
@@ -2950,8 +2945,12 @@ function damageZombie(z,dmg){
         if(deathPos.distanceTo(z2.mesh.position)<3.8) damageZombie(z2, 99999);
       }
     }
-    // Random powerup drop
-    tryDropPowerup(deathPos);
+    // Random powerup drop — server-authoritative in multiplayer, local in solo
+    if(mpMode==='solo'){
+      tryDropPowerup(deathPos);
+    } else if(socket && socket.connected){
+      socket.emit('zombie_killed', { x: deathPos.x, z: deathPos.z });
+    }
   }
 }
 
