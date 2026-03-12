@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DEAD ZONE</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -274,6 +275,59 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 .lobby-map{margin:12px 0;text-align:center}
 .lobby-map-label{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:4px}
 .lobby-map-name{font-size:18px;font-weight:700;letter-spacing:4px;color:#ffd700;text-transform:uppercase}
+
+/* ── MOBILE TOUCH CONTROLS ── */
+#mobileControls{display:none;position:fixed;inset:0;pointer-events:none;z-index:9000;touch-action:none}
+#mobileControls.show{display:block}
+
+/* Joystick */
+#joystickZone{position:absolute;bottom:20px;left:20px;width:160px;height:160px;pointer-events:auto;touch-action:none}
+#joystickBase{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);position:absolute;bottom:20px;left:20px}
+#joystickThumb{width:50px;height:50px;border-radius:50%;background:rgba(255,80,80,.4);border:2px solid rgba(255,80,80,.6);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(255,80,80,.3)}
+
+/* Look zone — right side for aiming */
+#lookZone{position:absolute;top:0;right:0;width:50%;height:100%;pointer-events:auto;touch-action:none}
+
+/* Action buttons */
+.mobBtn{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Courier New',monospace;font-weight:700;text-transform:uppercase;letter-spacing:1px;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.mobBtn:active{transform:scale(.92)}
+
+#mobShoot{bottom:60px;right:30px;width:80px;height:80px;background:rgba(255,50,50,.25);border:2px solid rgba(255,50,50,.6);font-size:10px;color:rgba(255,150,150,.9);box-shadow:0 0 15px rgba(255,50,50,.2)}
+#mobShoot.active{background:rgba(255,50,50,.5);box-shadow:0 0 25px rgba(255,50,50,.5)}
+#mobAds{bottom:155px;right:30px;width:60px;height:60px;background:rgba(255,200,0,.15);border:2px solid rgba(255,200,0,.4);font-size:9px;color:rgba(255,200,100,.8)}
+#mobAds.active{background:rgba(255,200,0,.4);border-color:rgba(255,200,0,.8)}
+#mobReload{bottom:155px;right:105px;width:52px;height:52px;background:rgba(100,200,255,.12);border:2px solid rgba(100,200,255,.35);font-size:8px;color:rgba(150,220,255,.8)}
+#mobDash{bottom:60px;right:125px;width:52px;height:52px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.25);font-size:8px;color:rgba(255,255,255,.6)}
+#mobInteract{bottom:228px;right:55px;width:52px;height:52px;background:rgba(255,215,0,.15);border:2px solid rgba(255,215,0,.4);font-size:9px;color:rgba(255,215,0,.8);opacity:0;transition:opacity .2s}
+#mobInteract.on{opacity:1}
+#mobKnife{bottom:228px;right:125px;width:46px;height:46px;background:rgba(200,200,200,.1);border:2px solid rgba(200,200,200,.3);font-size:8px;color:rgba(200,200,200,.7)}
+/* Weapon switch buttons */
+#mobWeapons{position:absolute;top:50%;right:10px;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.mobWepBtn{width:42px;height:42px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent}
+.mobWepBtn.active{border-color:rgba(255,200,0,.7);color:#ffd700;background:rgba(255,200,0,.12)}
+
+/* Sprint button */
+#mobSprint{bottom:148px;left:20px;width:52px;height:52px;background:rgba(100,255,100,.1);border:2px solid rgba(100,255,100,.3);font-size:7px;color:rgba(100,255,100,.7)}
+#mobSprint.active{background:rgba(100,255,100,.3);border-color:rgba(100,255,100,.7)}
+
+/* Pause button for mobile */
+#mobPause{position:absolute;top:14px;left:14px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);font-size:16px;color:rgba(255,255,255,.5);pointer-events:auto;display:flex;align-items:center;justify-content:center;touch-action:none;-webkit-tap-highlight-color:transparent}
+
+/* Mobile menu adjustments */
+@media (max-width:768px),(pointer:coarse){
+  .gtitle{font-size:42px;letter-spacing:6px}
+  .gsub{font-size:9px;letter-spacing:4px}
+  .gbtn{padding:12px 36px;font-size:12px}
+  .cgrid{font-size:9px;gap:3px 16px}
+  .ptitle{font-size:36px;letter-spacing:6px}
+  .mbtn{width:220px;padding:14px 0;font-size:11px}
+  .gostat .v{font-size:32px}
+  .lobby-code{font-size:36px}
+  #scoreTxt{font-size:20px}
+  #ammoNum{font-size:30px}
+  #credVal{font-size:22px}
+  #wbNum{font-size:48px}
+}
 </style>
 </head>
 <body>
@@ -283,6 +337,25 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 <div id="xhair"><div class="xdot"></div></div>
 <div id="adsVignette"></div>
 <div id="scopeOverlay"><div class="scope-ring"></div><div class="scope-cross-h"></div><div class="scope-cross-v"></div><div class="scope-mil"></div></div>
+
+<!-- MOBILE TOUCH CONTROLS -->
+<div id="mobileControls">
+  <div id="joystickZone"><div id="joystickBase"><div id="joystickThumb"></div></div></div>
+  <div id="lookZone"></div>
+  <div id="mobShoot" class="mobBtn">FIRE</div>
+  <div id="mobAds" class="mobBtn">ADS</div>
+  <div id="mobReload" class="mobBtn">R</div>
+  <div id="mobDash" class="mobBtn">DASH</div>
+  <div id="mobInteract" class="mobBtn">E</div>
+  <div id="mobKnife" class="mobBtn">F</div>
+  <div id="mobSprint" class="mobBtn">RUN</div>
+  <div id="mobPause">| |</div>
+  <div id="mobWeapons">
+    <div class="mobWepBtn" data-slot="0">1</div>
+    <div class="mobWepBtn" data-slot="1">2</div>
+    <div class="mobWepBtn active" data-slot="1">3</div>
+  </div>
+</div>
 
 <!-- Start Screen -->
 <!-- MODE SELECT SCREEN -->
@@ -5369,6 +5442,298 @@ function startGameMP(spawnPos){
 
   // Only host runs wave spawning
   if(mpMode==='solo' || isHost) startWave(1);
+}
+
+// ══════════════════════════════════════════════════
+// BOOT: Show mode screen on load
+// ══════════════════════════════════════════════════
+showScreen('modeScreen');
+
+// ══════════════════════════════════════════════════
+// MOBILE TOUCH CONTROLS
+// ══════════════════════════════════════════════════
+const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+if(isMobile){
+  // Show mobile controls container
+  const mobCtrl = document.getElementById('mobileControls');
+
+  // Override pointer lock — mobile can't use it
+  const _origReqPL = HTMLCanvasElement.prototype.requestPointerLock;
+  HTMLCanvasElement.prototype.requestPointerLock = function(){
+    // On mobile, skip pointer lock entirely; we handle aim via touch
+    if(isMobile) { pointerLocked = true; return; }
+    return _origReqPL.call(this);
+  };
+  // Pretend pointer is always locked during gameplay on mobile
+  Object.defineProperty(document, 'pointerLockElement', {
+    get(){ return (isMobile && alive && gameRunning && !paused) ? canvas : null; }
+  });
+
+  // ── VIRTUAL JOYSTICK ──
+  const jZone   = document.getElementById('joystickZone');
+  const jBase   = document.getElementById('joystickBase');
+  const jThumb  = document.getElementById('joystickThumb');
+  let jTouchId  = null;
+  let jCenterX  = 0, jCenterY = 0;
+  const jRadius = 45; // max displacement
+
+  function jStart(t){
+    jTouchId = t.identifier;
+    const r = jBase.getBoundingClientRect();
+    jCenterX = r.left + r.width/2;
+    jCenterY = r.top  + r.height/2;
+    jMove(t);
+  }
+  function jMove(t){
+    let dx = t.clientX - jCenterX;
+    let dy = t.clientY - jCenterY;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    if(dist > jRadius){ dx = dx/dist*jRadius; dy = dy/dist*jRadius; }
+    jThumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+    // Map to keys
+    const nx = dx/jRadius;
+    const ny = dy/jRadius;
+    const kb = SETTINGS.keybinds;
+    const deadzone = 0.2;
+    keys[kb.forward] = ny < -deadzone;
+    keys[kb.back]    = ny >  deadzone;
+    keys[kb.left]    = nx < -deadzone;
+    keys[kb.right]   = nx >  deadzone;
+  }
+  function jEnd(){
+    jTouchId = null;
+    jThumb.style.transform = 'translate(-50%,-50%)';
+    const kb = SETTINGS.keybinds;
+    keys[kb.forward]=false; keys[kb.back]=false;
+    keys[kb.left]=false; keys[kb.right]=false;
+  }
+
+  jZone.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(jTouchId===null) jStart(e.changedTouches[0]);
+  }, {passive:false});
+  jZone.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){ if(t.identifier===jTouchId) jMove(t); }
+  }, {passive:false});
+  jZone.addEventListener('touchend', e=>{
+    for(const t of e.changedTouches){ if(t.identifier===jTouchId) jEnd(); }
+  });
+  jZone.addEventListener('touchcancel', e=>{
+    for(const t of e.changedTouches){ if(t.identifier===jTouchId) jEnd(); }
+  });
+
+  // ── LOOK ZONE (right side — drag to aim) ──
+  const lookZone = document.getElementById('lookZone');
+  let lookTouchId = null;
+  let lookLastX = 0, lookLastY = 0;
+
+  lookZone.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(lookTouchId===null){
+      const t = e.changedTouches[0];
+      lookTouchId = t.identifier;
+      lookLastX = t.clientX;
+      lookLastY = t.clientY;
+    }
+  }, {passive:false});
+  lookZone.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier !== lookTouchId) continue;
+      const dx = t.clientX - lookLastX;
+      const dy = t.clientY - lookLastY;
+      lookLastX = t.clientX;
+      lookLastY = t.clientY;
+
+      if((!alive && !deadThisRound)||paused) continue;
+      const sens = SETTINGS.sensitivity * 2.5 * (1 - adsLerp * (1-ADS_SENS_MULT));
+      camYaw -= dx * sens;
+      if(adsLerp > 0.5){
+        fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - dy * sens * 1.5));
+      } else {
+        camPitch = Math.max(0.15, Math.min(0.8, camPitch + dy * sens));
+      }
+    }
+  }, {passive:false});
+  lookZone.addEventListener('touchend', e=>{
+    for(const t of e.changedTouches){ if(t.identifier===lookTouchId) lookTouchId=null; }
+  });
+  lookZone.addEventListener('touchcancel', e=>{
+    for(const t of e.changedTouches){ if(t.identifier===lookTouchId) lookTouchId=null; }
+  });
+
+  // ── ACTION BUTTONS ──
+  function mobBtnTouch(id, downFn, upFn){
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e=>{ e.preventDefault(); e.stopPropagation(); downFn(); el.classList.add('active'); }, {passive:false});
+    el.addEventListener('touchend',   e=>{ e.preventDefault(); e.stopPropagation(); upFn();   el.classList.remove('active'); }, {passive:false});
+    el.addEventListener('touchcancel',e=>{ upFn(); el.classList.remove('active'); });
+  }
+
+  // FIRE — hold to shoot + drag to aim simultaneously
+  {
+    const shootEl = document.getElementById('mobShoot');
+    let shootTouchId = null;
+    let shootLastX = 0, shootLastY = 0;
+
+    shootEl.addEventListener('touchstart', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const t = e.changedTouches[0];
+      shootTouchId = t.identifier;
+      shootLastX = t.clientX;
+      shootLastY = t.clientY;
+      if(alive && !paused && !downed && !perkMenuOpen) shooting = true;
+      shootEl.classList.add('active');
+    }, {passive:false});
+
+    shootEl.addEventListener('touchmove', e=>{
+      e.preventDefault(); e.stopPropagation();
+      for(const t of e.changedTouches){
+        if(t.identifier !== shootTouchId) continue;
+        const dx = t.clientX - shootLastX;
+        const dy = t.clientY - shootLastY;
+        shootLastX = t.clientX;
+        shootLastY = t.clientY;
+        if((!alive && !deadThisRound) || paused) continue;
+        const sens = SETTINGS.sensitivity * 2.5 * (1 - adsLerp * (1 - ADS_SENS_MULT));
+        camYaw -= dx * sens;
+        if(adsLerp > 0.5){
+          fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - dy * sens * 1.5));
+        } else {
+          camPitch = Math.max(0.15, Math.min(0.8, camPitch + dy * sens));
+        }
+      }
+    }, {passive:false});
+
+    shootEl.addEventListener('touchend', e=>{
+      for(const t of e.changedTouches){
+        if(t.identifier === shootTouchId){ shootTouchId = null; shooting = false; shootEl.classList.remove('active'); }
+      }
+    });
+    shootEl.addEventListener('touchcancel', e=>{
+      for(const t of e.changedTouches){
+        if(t.identifier === shootTouchId){ shootTouchId = null; shooting = false; shootEl.classList.remove('active'); }
+      }
+    });
+  }
+
+  // ADS (toggle on mobile)
+  let mobAdsOn = false;
+  document.getElementById('mobAds').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(!alive || paused) return;
+    mobAdsOn = !mobAdsOn;
+    tryADS(mobAdsOn);
+    document.getElementById('mobAds').classList.toggle('active', mobAdsOn);
+  }, {passive:false});
+
+  // RELOAD
+  document.getElementById('mobReload').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(alive && !paused && !downed) startReload();
+  }, {passive:false});
+
+  // DASH
+  document.getElementById('mobDash').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(alive && !paused && !downed) dodge();
+  }, {passive:false});
+
+  // INTERACT / BUY
+  document.getElementById('mobInteract').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(alive && !paused) tryBuy();
+  }, {passive:false});
+
+  // KNIFE
+  document.getElementById('mobKnife').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(alive && !paused && !downed) equipKnife();
+  }, {passive:false});
+
+  // SPRINT (toggle)
+  let mobSprintOn = false;
+  document.getElementById('mobSprint').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    mobSprintOn = !mobSprintOn;
+    keys[SETTINGS.keybinds.sprint] = mobSprintOn;
+    document.getElementById('mobSprint').classList.toggle('active', mobSprintOn);
+  }, {passive:false});
+
+  // PAUSE
+  document.getElementById('mobPause').addEventListener('touchstart', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(perkMenuOpen){ closePerkMenu(); return; }
+    if(alive && gameRunning) setPause(!paused);
+  }, {passive:false});
+
+  // WEAPON SWITCH
+  document.querySelectorAll('.mobWepBtn').forEach(btn=>{
+    btn.addEventListener('touchstart', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const slot = parseInt(btn.dataset.slot);
+      if(slot===2 && btn.textContent==='3'){
+        // Slot 3 only if mule kick
+        if(playerPerks.includes('muleKick') && inventory.length>2){
+          knifeActive=false; activeSlot=2; updateGunVisual(); updateHUD();
+        }
+      } else if(inventory.length>slot){
+        knifeActive=false; activeSlot=slot; updateGunVisual(); updateHUD();
+      }
+      // Update active button styling
+      document.querySelectorAll('.mobWepBtn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    }, {passive:false});
+  });
+
+  // ── Show/hide mobile controls based on game state ──
+  const _origShowScreen = showScreen;
+  // Patch into showScreen to hide mobile controls on menus
+  const origSSBody = showScreen.toString();
+  // We'll use a setInterval to check game state instead
+  setInterval(()=>{
+    const inGame = alive && gameRunning && !paused;
+    mobCtrl.classList.toggle('show', inGame);
+
+    // Show interact button when near buyable
+    const buyEl = document.getElementById('buyPrompt');
+    const showBuy = buyEl && buyEl.classList.contains('on');
+    document.getElementById('mobInteract').classList.toggle('on', showBuy || (downed && false));
+
+    // Reset ADS state when dying
+    if(!alive && mobAdsOn){ mobAdsOn=false; document.getElementById('mobAds').classList.remove('active'); }
+    // Reset sprint when not alive
+    if(!alive && mobSprintOn){ mobSprintOn=false; keys[SETTINGS.keybinds.sprint]=false; document.getElementById('mobSprint').classList.remove('active'); }
+
+    // Update weapon buttons visibility
+    const wBtns = document.querySelectorAll('.mobWepBtn');
+    wBtns[0].style.display = inventory.length > 0 ? 'flex' : 'none';
+    wBtns[1].style.display = inventory.length > 1 ? 'flex' : 'none';
+    wBtns[2].style.display = (playerPerks.includes('muleKick') && inventory.length > 2) ? 'flex' : 'none';
+  }, 200);
+
+  // ── Hide controls help text on mobile ──
+  document.querySelectorAll('.cgrid').forEach(el=>el.style.display='none');
+  // Replace with short mobile hint
+  const hint = document.createElement('div');
+  hint.style.cssText='font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.25);margin-top:20px;text-transform:uppercase';
+  hint.textContent='Touch controls enabled';
+  const playBtn = document.getElementById('playBtn');
+  if(playBtn && playBtn.parentNode) playBtn.parentNode.appendChild(hint);
+
+  // ── Prevent iOS rubber-banding ──
+  document.body.addEventListener('touchmove', e=>{
+    if(e.target.closest('#mobileControls') || e.target===canvas) e.preventDefault();
+  }, {passive:false});
+
+  // ── Fix: on mobile, menu buttons need to work without pointer lock ──
+  // Make canvas not intercept touch events on menus
+  const origSetPause = setPause;
+  // Mobile pause also shows controls properly
+  console.log('[DEAD ZONE] Mobile touch controls initialized');
 }
 
 // ══════════════════════════════════════════════════
