@@ -152,6 +152,17 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 #downedHint{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.3);margin-top:14px}
 @keyframes downedPulse{0%,100%{opacity:.7}50%{opacity:1}}
 
+/* dead spectator overlay (waiting for next round) */
+#deadSpectateOverlay{position:fixed;inset:0;background:rgba(0,0,0,.75);pointer-events:none;z-index:57;display:none}
+#deadSpectateOverlay.on{display:block}
+#deadSpectateText{position:fixed;top:35%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:58;display:none}
+#deadSpectateText.on{display:block}
+#deadSpectateTitle{font-size:32px;font-weight:900;letter-spacing:10px;color:#ff2222;text-shadow:0 0 40px rgba(255,0,0,.7);text-transform:uppercase}
+#deadSpectateSub{font-size:13px;letter-spacing:4px;color:rgba(255,255,255,.5);margin-top:12px;text-transform:uppercase}
+#deadSpectateWave{font-size:11px;letter-spacing:3px;color:rgba(255,200,80,.4);margin-top:20px;text-transform:uppercase}
+@keyframes deadPulse{0%,100%{opacity:.6}50%{opacity:1}}
+#deadSpectateOverlay.on{animation:deadPulse 3s ease-in-out infinite}
+
 /* mystery box popup */
 #mbFlash{position:fixed;top:32%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s;z-index:60}
 #mbFlash.on{opacity:1}
@@ -179,6 +190,45 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 .pwrTimerBar{width:80px;height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden}
 .pwrTimerFill{height:100%;border-radius:2px;transition:width .1s}
 .pwrTimerLabel{font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.4);text-transform:uppercase}
+
+/* ── PERK HUD ICONS (right of health bar) ── */
+#perkHud{position:fixed;bottom:20px;left:224px;display:flex;gap:6px;pointer-events:none;z-index:40;align-items:center}
+.perkIcon{width:36px;height:36px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;border:2px solid rgba(255,255,255,.25);opacity:0;transform:scale(0.5);transition:opacity .3s, transform .3s;text-shadow:0 0 8px currentColor}
+.perkIcon.active{opacity:1;transform:scale(1)}
+
+/* perk purchase flash */
+#perkFlash{position:fixed;top:32%;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s;z-index:63}
+#perkFlash.on{opacity:1}
+#perkFlashIcon{font-size:48px;line-height:1}
+#perkFlashName{font-size:20px;font-weight:900;letter-spacing:5px;text-transform:uppercase;margin-top:6px}
+#perkFlashDesc{font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-top:3px}
+
+/* ── PERK SELECTION MENU ── */
+#perkMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;pointer-events:none;opacity:0;transition:opacity .2s}
+#perkMenu.open{opacity:1;pointer-events:auto}
+#perkMenuBg{position:absolute;inset:0;background:rgba(0,0,0,.7)}
+#perkMenuPanel{position:relative;z-index:1;width:420px;background:linear-gradient(135deg,rgba(20,12,40,.96),rgba(10,8,22,.98));border:1px solid rgba(136,68,255,.35);border-radius:8px;padding:24px 20px 18px;box-shadow:0 0 60px rgba(136,68,255,.2),inset 0 0 30px rgba(136,68,255,.05)}
+#perkMenuTitle{text-align:center;font-size:16px;font-weight:900;letter-spacing:6px;color:#bb88ff;text-transform:uppercase;margin-bottom:6px;text-shadow:0 0 20px rgba(136,68,255,.6)}
+#perkMenuSub{text-align:center;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.3);margin-bottom:16px;text-transform:uppercase}
+#perkMenuCredits{text-align:center;font-size:11px;letter-spacing:3px;color:#ffd700;margin-bottom:14px}
+#perkMenuGrid{display:flex;flex-direction:column;gap:8px}
+.pmItem{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;cursor:pointer;transition:all .18s;user-select:none}
+.pmItem:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);transform:translateX(3px)}
+.pmItem.owned{opacity:.45;cursor:default;border-color:rgba(100,255,100,.2)}
+.pmItem.owned:hover{transform:none;background:rgba(255,255,255,.04)}
+.pmItem.cantafford{opacity:.5;cursor:default}
+.pmItem.cantafford:hover{transform:none;background:rgba(255,255,255,.04)}
+.pmItemIcon{font-size:28px;line-height:1;width:36px;text-align:center;flex-shrink:0}
+.pmItemInfo{flex:1;min-width:0}
+.pmItemName{font-size:12px;font-weight:800;letter-spacing:3px;text-transform:uppercase}
+.pmItemDesc{font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,.4);margin-top:2px}
+.pmItemRight{text-align:right;flex-shrink:0}
+.pmItemCost{font-size:12px;font-weight:700;color:#ffd700;letter-spacing:1px}
+.pmItemStatus{font-size:8px;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.pmItemStatus.owned-tag{color:#44ff88}
+.pmItemStatus.limit-tag{color:#ff4444}
+#perkMenuLimit{text-align:center;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.25);margin-top:12px;text-transform:uppercase}
+#perkMenuHint{text-align:center;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.2);margin-top:8px}
 
 /* ── SETTINGS OVERLAY ── */
 #settingsOverlay{background:rgba(0,0,0,.92)}
@@ -366,6 +416,14 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
   <div id="downedTitle">YOU ARE DOWN</div>
   <div id="downedTimer">Bleed out: 30s</div>
   <div id="downedHint">Wait for a teammate to revive you</div>
+
+<!-- Dead spectator overlay (waiting for next round respawn) -->
+<div id="deadSpectateOverlay"></div>
+<div id="deadSpectateText">
+  <div id="deadSpectateTitle">YOU DIED</div>
+  <div id="deadSpectateSub">Respawning next round...</div>
+  <div id="deadSpectateWave">Perks and weapons lost</div>
+</div>
 </div>
 
 <!-- Mystery box popup -->
@@ -396,6 +454,29 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
       <div class="pwrTimerLabel">Kaboom</div>
       <div class="pwrTimerBar"><div class="pwrTimerFill" style="background:#ff8800;width:100%"></div></div>
     </div>
+  </div>
+</div>
+
+<!-- Perk HUD icons (right of health bar, bottom-left) -->
+<div id="perkHud"></div>
+
+<!-- Perk purchase flash -->
+<div id="perkFlash">
+  <div id="perkFlashIcon"></div>
+  <div id="perkFlashName"></div>
+  <div id="perkFlashDesc"></div>
+</div>
+
+<!-- Perk selection menu (opens when pressing E near perk machine) -->
+<div id="perkMenu">
+  <div id="perkMenuBg"></div>
+  <div id="perkMenuPanel">
+    <div id="perkMenuTitle">PERK MACHINE</div>
+    <div id="perkMenuSub">Select a perk to purchase</div>
+    <div id="perkMenuCredits"></div>
+    <div id="perkMenuGrid"></div>
+    <div id="perkMenuLimit"></div>
+    <div id="perkMenuHint">Press [ESC] or [E] to close</div>
   </div>
 </div>
 
@@ -462,6 +543,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="settings-body off" id="tab-gameplay">
       <label class="srow"><span>Field of View</span><input type="range" min="50" max="120" value="65" id="sFov"><span class="sval" id="sFovVal">65</span></label>
       <label class="srow"><span>Show Crosshair</span><label class="toggle"><input type="checkbox" id="sXhair" checked><span class="tslider"></span></label></label>
+      <label class="srow"><span>Fullscreen</span><label class="toggle"><input type="checkbox" id="sFullscreen"><span class="tslider"></span></label></label>
     </div>
 
     <div class="settings-footer">
@@ -510,6 +592,7 @@ let waveActive=false, waveDelay=0, zombsLeft=0;
 let downed = false;              // local player is downed
 let downedTimer = 0;             // bleed-out countdown (seconds)
 const BLEEDOUT_TIME = 30;        // seconds before dying while downed
+let deadThisRound = false;       // dead but waiting to respawn next wave (multiplayer)
 const REVIVE_TIME = 3.0;         // seconds to hold E to revive
 let reviveTarget = null;         // socket id of player we're reviving
 let reviveProgress = 0;          // 0→REVIVE_TIME seconds
@@ -520,6 +603,7 @@ let prevT=null;
 let shooting=false;
 let activeSlot=0;
 let knifeActive=false; // true when knife is equipped via F
+let knifePacked=false; // true when knife has been Pack-a-Punched to KATANA
 
 // ADS (Aim Down Sights) — TRUE first-person: hard switch, not a blend
 let adsActive=false;     // is RMB held?
@@ -551,6 +635,30 @@ const powerupDrops = []; // active powerup orbs on the ground
 
 // Powerup active timers (seconds remaining, 0 = inactive)
 const pwrState = { instaKill:0, instaKillMax:20, kaboom:0, kaboomMax:15 };
+
+// ══════════════════════════════════════════════════
+// PERK MACHINE SYSTEM — definitions, state, config
+// ══════════════════════════════════════════════════
+const PERKS = {
+  juggernog:   { name:'JUGGERNOG',    icon:'🛡️', color:0xff2200, glowColor:0xff4400, cost:2500,
+                 desc:'Increased health (250 HP)', cssColor:'#ff2200' },
+  speedCola:   { name:'SPEED COLA',   icon:'⚡', color:0x00cc44, glowColor:0x22ff66, cost:3000,
+                 desc:'Faster reload speed',       cssColor:'#00cc44' },
+  doubleTap:   { name:'DOUBLE TAP',   icon:'🔥', color:0xffaa00, glowColor:0xffcc44, cost:2000,
+                 desc:'Increased fire rate',       cssColor:'#ffaa00' },
+  quickRevive: { name:'QUICK REVIVE', icon:'💚', color:0x00aaff, glowColor:0x44ccff, cost:1500,
+                 desc:'Faster revive / Self-revive (solo)', cssColor:'#00aaff' },
+  staminUp:    { name:'STAMIN-UP',   icon:'🏃', color:0xffff00, glowColor:0xffff44, cost:2000,
+                 desc:'Increased movement speed',           cssColor:'#ffff00' },
+  muleKick:    { name:'MULE KICK',   icon:'🎒', color:0x44dd44, glowColor:0x66ff66, cost:4000,
+                 desc:'Extra weapon slot (3rd gun)',        cssColor:'#44dd44' },
+};
+const PERK_LIMIT = 6;
+let playerPerks = []; // array of perk ids the local player owns
+let soloQuickReviveUsed = false; // track if solo self-revive was consumed
+let perkMachine = null; // single perk machine: { posVec, body, cap, light, beam, ... }
+let perkMachineObjects = []; // track all perk machine scene objects for cleanup
+let perkMenuOpen = false; // is the perk selection menu visible?
 
 const CAM_DIST = 9;
 let ARENA    = 34; // will be set per map
@@ -600,6 +708,8 @@ const MAPS = {
     zombieSpawnRadius: 33, zombieSpawnSpread: 4,
     // No extra decorations for farm (uses default perimeter + obstacles)
     decorations: [],
+    // SINGLE PERK MACHINE — near PaP corner
+    perkMachinePos: {x:14,y:0,z:-8}, perkMachineRot: Math.PI,
   },
   redline: {
     id:'redline', name:'Redline Trailer Park', icon:'🏚️',
@@ -647,6 +757,8 @@ const MAPS = {
     soloSpawn: {x:0,y:0,z:0},
     zombieSpawnRadius: 37, zombieSpawnSpread: 4,
     decorations: 'redline', // flag to trigger custom decorator
+    // SINGLE PERK MACHINE — near gas station
+    perkMachinePos: {x:-12,y:0,z:13},
   },
   blackwater: {
     id:'blackwater', name:'Blackwater Docks', icon:'⚓',
@@ -697,6 +809,8 @@ const MAPS = {
     soloSpawn: {x:0,y:0,z:0},
     zombieSpawnRadius: 41, zombieSpawnSpread: 5,
     decorations: 'blackwater',
+    // SINGLE PERK MACHINE — open corridor between dock and warehouse, facing back
+    perkMachinePos: {x:6,y:0,z:8}, perkMachineRot: Math.PI,
   }
 };
 
@@ -850,6 +964,9 @@ function buildMap(mapId){
   // Add PaP to obstacle collision
   OBS.push({x:PAP_POS_VEC.x, z:PAP_POS_VEC.z, hw:1.2, hd:1.2});
 
+  // ── PERK MACHINES — build all 4 perk machines for this map ──
+  buildPerkMachines(cfg);
+
   // Map-specific decorations
   if(cfg.decorations === 'redline') buildRedlineDecorations();
   if(cfg.decorations === 'blackwater') buildBlackwaterDecorations();
@@ -857,6 +974,108 @@ function buildMap(mapId){
   // Update player spawn positions for multiplayer
   PLAYER_SPAWNS.length=0;
   for(const sp of cfg.playerSpawns) PLAYER_SPAWNS.push(new THREE.Vector3(sp.x,sp.y,sp.z));
+}
+
+// ══════════════════════════════════════════════════
+// PERK MACHINE SYSTEM — single machine 3D builder + cleanup
+// ══════════════════════════════════════════════════
+function clearPerkMachines(){
+  for(const obj of perkMachineObjects){
+    scene.remove(obj);
+    if(obj.geometry) obj.geometry.dispose();
+    if(obj.material){
+      if(Array.isArray(obj.material)) obj.material.forEach(m=>m.dispose());
+      else obj.material.dispose();
+    }
+  }
+  perkMachineObjects=[];
+  perkMachine=null;
+}
+
+function buildPerkMachines(cfg){
+  clearPerkMachines();
+  if(!cfg.perkMachinePos) return;
+  const addObj = (m) => { scene.add(m); mapSceneObjects.push(m); perkMachineObjects.push(m); };
+
+  const px = cfg.perkMachinePos.x, pz = cfg.perkMachinePos.z;
+  const posVec = new THREE.Vector3(px, 0, pz);
+  const rot = cfg.perkMachineRot || 0;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+  // Helper: rotate a local offset (lx,lz) around the machine center
+  const rx = (lx,lz) => px + lx*cosR - lz*sinR;
+  const rz = (lx,lz) => pz + lx*sinR + lz*cosR;
+
+  // ── Main body — wide vending machine (all-in-one perk machine) ──
+  const bodyGeo = new THREE.BoxGeometry(1.8, 2.8, 1.0);
+  const bodyMat = new THREE.MeshLambertMaterial({color: 0x1a1a2e, emissive: 0x2211aa, emissiveIntensity: 0.12});
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.set(px, 1.4, pz);
+  body.rotation.y = rot;
+  body.castShadow = true; body.receiveShadow = true;
+  addObj(body);
+
+  // ── Front panel (dark screen) ──
+  const panelGeo = new THREE.BoxGeometry(1.4, 1.4, 0.06);
+  const panelMat = new THREE.MeshLambertMaterial({color: 0x080810, emissive: 0x4422ff, emissiveIntensity: 0.25});
+  const panel = new THREE.Mesh(panelGeo, panelMat);
+  panel.position.set(rx(0,-0.53), 1.6, rz(0,-0.53));
+  panel.rotation.y = rot;
+  addObj(panel);
+
+  // ── 4 colored perk indicator strips on front (one per perk) ──
+  const perkIds = Object.keys(PERKS);
+  for(let i=0; i<perkIds.length; i++){
+    const perk = PERKS[perkIds[i]];
+    const stripGeo = new THREE.BoxGeometry(0.28, 0.28, 0.08);
+    const stripMat = new THREE.MeshBasicMaterial({color: perk.glowColor, transparent: true, opacity: 0.85});
+    const strip = new THREE.Mesh(stripGeo, stripMat);
+    const xOff = (i - 1.5) * 0.34;
+    strip.position.set(rx(xOff,-0.55), 0.55, rz(xOff,-0.55));
+    strip.rotation.y = rot;
+    addObj(strip);
+  }
+
+  // ── Glowing top cap (multi-color gradient effect via purple) ──
+  const capGeo = new THREE.BoxGeometry(1.9, 0.25, 1.1);
+  const capMat = new THREE.MeshBasicMaterial({color: 0x8844ff, transparent: true, opacity: 0.75});
+  const cap = new THREE.Mesh(capGeo, capMat);
+  cap.position.set(px, 2.95, pz);
+  cap.rotation.y = rot;
+  addObj(cap);
+
+  // ── Point light (purple glow) ──
+  const light = new THREE.PointLight(0x8844ff, 3.0, 10);
+  light.position.set(px, 3.5, pz);
+  addObj(light);
+
+  // ── Second accent light (warm) ──
+  const light2 = new THREE.PointLight(0xffaa44, 1.2, 6);
+  light2.position.set(rx(0,-1.0), 1.5, rz(0,-1.0));
+  addObj(light2);
+
+  // ── Upward beam (purple, taller than individual machines) ──
+  const beamGeo = new THREE.CylinderGeometry(0.05, 0.3, 4, 6, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({color: 0x8844ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide});
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.set(px, 4.5, pz);
+  addObj(beam);
+
+  // ── Obstacle collision ──
+  OBS.push({x: px, z: pz, hw: 0.9, hd: 0.5});
+
+  // Store reference
+  perkMachine = { body, panel, cap, light, light2, beam, posVec };
+}
+
+// ── Animate the single perk machine (called from tick) ──
+function animatePerkMachines(ts){
+  if(!perkMachine) return;
+  const t = ts * 0.001;
+  const pm = perkMachine;
+  pm.cap.material.opacity = 0.6 + 0.25 * Math.sin(t * 2.0);
+  pm.light.intensity = 2.5 + Math.sin(t * 2.5) * 1.2;
+  pm.light2.intensity = 1.0 + Math.sin(t * 3.5 + 1.0) * 0.5;
+  pm.beam.rotation.y += 0.006;
 }
 
 // ══════════════════════════════════════════════════
@@ -1532,7 +1751,8 @@ const PAP_COST = 5000;
 
 // Upgraded weapon definitions — damage boost, bigger mag, more reserve, new name + color
 const PAP_UPGRADES = {
-  pistol:      {name:"MUSTANG",       dmg:90,  mag:20, res:120, color:0xcc44ff, rof:0.25},
+  knife:       {name:"KATANA",        dmg:300, mag:999,res:999, color:0xff00cc, rof:0.45, melee:true},
+  pistol:      {name:"MUSTANG",       dmg:90,  mag:20, res:120, color:0xcc44ff, rof:0.25, explosive:true},
   smg:         {name:"THE AFTERBURNER",dmg:55, mag:45, res:270, color:0xaa22ff, rof:0.06},
   shotgun:     {name:"THE BEAR JAW",  dmg:130, mag:8,  res:64,  color:0x9900ff, rof:0.6, pellets:8},
   ak47:        {name:"AK-47U REBORN", dmg:110, mag:40, res:200, color:0xbb33ff, rof:0.10},
@@ -1589,7 +1809,30 @@ function playPaPSfx(){
 
 function packAPunch(){
   if(papBusy) return;
-  if(knifeActive){ addFeed("Can't upgrade knife!"); return; }
+
+  // ── Knife PaP path ──
+  if(knifeActive){
+    if(knifePacked){ addFeed('KATANA is already Pack-a-Punched!'); return; }
+    if(credits < PAP_COST){ addFeed('Need '+PAP_COST+' credits!'); return; }
+    credits -= PAP_COST;
+    papBusy = true;
+    playPaPSfx();
+    papLight.intensity = 8;
+    papTop.material.color.setHex(0xff44ff);
+    setTimeout(()=>{
+      knifePacked = true;
+      updateGunVisual(); updateHUD();
+      document.getElementById('papTxt').textContent = 'KATANA';
+      document.getElementById('papFlash').classList.add('on');
+      setTimeout(()=> document.getElementById('papFlash').classList.remove('on'), 2800);
+      addFeed('⚡ PACK-A-PUNCHED: KATANA!');
+      papBusy = false;
+      papTop.material.color.setHex(0x8800ff);
+    }, 3000);
+    return;
+  }
+
+  // ── Regular weapon PaP path ──
   const slot = inventory[activeSlot];
   if(!slot){ addFeed('No weapon to upgrade!'); return; }
   if(slot.melee){ addFeed("Can't upgrade melee weapons!"); return; }
@@ -1616,8 +1859,9 @@ function packAPunch(){
     slot.ammo    = upg.mag;       // Full mag
     slot.reserve = upg.res;       // Full reserve
     slot.packed  = true;
-    if(upg.rof)     slot.rof     = upg.rof;
-    if(upg.pellets) slot.pellets = upg.pellets;
+    if(upg.rof)       slot.rof       = upg.rof;
+    if(upg.pellets)   slot.pellets   = upg.pellets;
+    if(upg.explosive) slot.explosive = upg.explosive;
 
     updateGunVisual();
     updateHUD();
@@ -1982,7 +2226,10 @@ function buildWeaponModel(key, color, isPacked){
 // HELPERS
 // ══════════════════════════════════════════════════
 function currentGun(){
-  if(knifeActive) return {...GUNS.knife, key:'knife', ammo:999, reserve:999};
+  if(knifeActive){
+    if(knifePacked){ const ku=PAP_UPGRADES.knife; return {name:ku.name,dmg:ku.dmg,rof:ku.rof,mag:999,res:999,reload:0,cost:0,color:ku.color,auto:false,spread:0,bulletSpd:0,pellets:1,melee:true,key:'knife',ammo:999,reserve:999,packed:true}; }
+    return {...GUNS.knife, key:'knife', ammo:999, reserve:999};
+  }
   return inventory[activeSlot];
 }
 
@@ -2013,8 +2260,9 @@ function resolveObs(p,r){
 
 function updateHUD(){
   const g=currentGun();
-  document.getElementById('hfill').style.width=health+'%';
-  document.getElementById('hfill').classList.toggle('regen', health<100 && regenTimer>=5);
+  const mxHP = getMaxHealth();
+  document.getElementById('hfill').style.width=(health/mxHP*100)+'%';
+  document.getElementById('hfill').classList.toggle('regen', health<mxHP && regenTimer>=5);
   document.getElementById('credVal').textContent=credits.toLocaleString();
   const slotLabel = knifeActive ? '[F]' : '['+(activeSlot+1)+']';
   document.getElementById('ammoGunName').textContent=g.name+' '+slotLabel;
@@ -2085,6 +2333,14 @@ function updateBuyPrompt(){
   } else if(pos.distanceTo(MB_POS_VEC)<3.5){
     txt='Mystery Box — 950 credits (replaces '+replaceName+')';
   }
+  // ── PERK MACHINE PROMPT (single machine) ──
+  if(!txt && perkMachine && pos.distanceTo(perkMachine.posVec)<3.5){
+    if(playerPerks.length >= PERK_LIMIT){
+      txt = '🧪 PERK MACHINE — All perks owned!';
+    } else {
+      txt = '🧪 PERK MACHINE — Browse perks';
+    }
+  }
   const bp=document.getElementById('buyPrompt');
   if(txt){
     document.getElementById('buyTxt').textContent=txt;
@@ -2139,7 +2395,7 @@ function spawnBullet(){
   const g=currentGun();
   if(reloading||shootCD>0) return;
   if(g.ammo<=0) return;
-  g.ammo--; shootCD=g.rof; updateHUD();
+  g.ammo--; shootCD=g.rof * getFireRateMult(); updateHUD(); // DOUBLE TAP EFFECT
 
   // Play weapon sound
   const sfxKey = g.key || (knifeActive ? 'knife' : 'fists');
@@ -2148,7 +2404,7 @@ function spawnBullet(){
   // Knife melee — instant hit on zombies within range
   if(g.melee){
     gunGrp.rotation.x=-0.8; setTimeout(()=>gunGrp.rotation.x=0,160);
-    const KNIFE_RANGE=2.2;
+    const KNIFE_RANGE = (knifeActive && knifePacked) ? 3.2 : 2.2;
     // Exact forward direction from camera yaw
     const fwd=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
     let hit=false;
@@ -2500,7 +2756,7 @@ function spawnZombie(w, forceElite){
   const hp     = isElite ? Math.floor(baseHp * 3) : baseHp;
   const speed  = isElite ? 2.2+w*.22+Math.random()*.5 : 1.6+w*.18+Math.random()*.7;
   const atkCD  = isElite ? 0.8 : 1.3;
-  const meleeDmg = isElite ? 25 : 10;
+  const meleeDmg = isElite ? 50 : 20;
 
   zombies.push({
     mesh:g, hp, maxHp:hp, speed, atkT:0, atkCD, alive:true,
@@ -2559,6 +2815,283 @@ function tryBuy(){
   }
   if(pos.distanceTo(PAP_POS_VEC)<3.5){ packAPunch(); return; }
   if(pos.distanceTo(MB_POS_VEC)<3.5){ openMysteryBox(); return; }
+  // ── PERK MACHINE INTERACTION — open menu ──
+  if(perkMachine && pos.distanceTo(perkMachine.posVec)<3.5){
+    openPerkMenu();
+    return;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// PERK MACHINE MENU — open, render, close, buy
+// ══════════════════════════════════════════════════
+function openPerkMenu(){
+  if(perkMenuOpen) return;
+  perkMenuOpen = true;
+  shooting = false; // stop shooting while menu open
+  document.exitPointerLock();
+  renderPerkMenu();
+  document.getElementById('perkMenu').classList.add('open');
+}
+
+function closePerkMenu(){
+  if(!perkMenuOpen) return;
+  perkMenuOpen = false;
+  document.getElementById('perkMenu').classList.remove('open');
+  // Re-acquire pointer lock for gameplay
+  if(alive && !paused && gameRunning) setTimeout(()=> canvas.requestPointerLock(), 50);
+}
+
+function renderPerkMenu(){
+  const grid = document.getElementById('perkMenuGrid');
+  grid.innerHTML = '';
+  document.getElementById('perkMenuCredits').textContent = '💰 Credits: ' + credits;
+  document.getElementById('perkMenuLimit').textContent = 'Perks: ' + playerPerks.length + ' / ' + PERK_LIMIT;
+
+  for(const [perkId, perk] of Object.entries(PERKS)){
+    const owned = playerPerks.includes(perkId);
+    const limitHit = playerPerks.length >= PERK_LIMIT && !owned;
+    const cantAfford = credits < perk.cost && !owned;
+
+    const item = document.createElement('div');
+    item.className = 'pmItem';
+    if(owned) item.classList.add('owned');
+    else if(limitHit || cantAfford) item.classList.add('cantafford');
+
+    // Icon
+    const iconEl = document.createElement('div');
+    iconEl.className = 'pmItemIcon';
+    iconEl.textContent = perk.icon;
+
+    // Info
+    const infoEl = document.createElement('div');
+    infoEl.className = 'pmItemInfo';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'pmItemName';
+    nameEl.style.color = perk.cssColor;
+    nameEl.textContent = perk.name;
+    const descEl = document.createElement('div');
+    descEl.className = 'pmItemDesc';
+    descEl.textContent = perk.desc;
+    infoEl.appendChild(nameEl);
+    infoEl.appendChild(descEl);
+
+    // Right side (cost / status)
+    const rightEl = document.createElement('div');
+    rightEl.className = 'pmItemRight';
+    if(owned){
+      const statusEl = document.createElement('div');
+      statusEl.className = 'pmItemStatus owned-tag';
+      statusEl.textContent = 'OWNED';
+      rightEl.appendChild(statusEl);
+    } else if(limitHit){
+      const statusEl = document.createElement('div');
+      statusEl.className = 'pmItemStatus limit-tag';
+      statusEl.textContent = 'LIMIT';
+      rightEl.appendChild(statusEl);
+    } else {
+      const costEl = document.createElement('div');
+      costEl.className = 'pmItemCost';
+      costEl.textContent = perk.cost;
+      rightEl.appendChild(costEl);
+      if(cantAfford){
+        const statusEl = document.createElement('div');
+        statusEl.className = 'pmItemStatus limit-tag';
+        statusEl.textContent = 'NO FUNDS';
+        rightEl.appendChild(statusEl);
+      }
+    }
+
+    item.appendChild(iconEl);
+    item.appendChild(infoEl);
+    item.appendChild(rightEl);
+
+    // Click handler — buy perk
+    if(!owned && !limitHit && !cantAfford){
+      item.addEventListener('click', ()=> buyPerkFromMenu(perkId));
+    }
+
+    grid.appendChild(item);
+  }
+}
+
+function buyPerkFromMenu(perkId){
+  const perk = PERKS[perkId];
+  if(!perk) return;
+  if(playerPerks.includes(perkId)) return;
+  if(playerPerks.length >= PERK_LIMIT){ addFeed('Perk limit reached!'); return; }
+  if(credits < perk.cost){ addFeed('Need '+perk.cost+' credits!'); return; }
+
+  // Purchase!
+  credits -= perk.cost;
+  playerPerks.push(perkId);
+  applyPerkEffect(perkId);
+  updatePerkHUD();
+  updateHUD();
+  showPerkPurchaseFlash(perkId);
+  playPerkPurchaseSfx();
+  addFeed(perk.icon+' '+perk.name+' purchased!');
+
+  // Re-render menu to update states
+  renderPerkMenu();
+
+  // Multiplayer: broadcast perk purchase
+  if(mpMode !== 'solo'){
+    socket.emit('player_update', {
+      pos: {x:pos.x,y:pos.y,z:pos.z},
+      rot: playerMesh.rotation.y,
+      health, gun: currentGun().key||'pistol',
+      knifeActive, alive, downed,
+      perks: playerPerks.slice()
+    });
+  }
+
+  // Auto-close menu if all 4 perks owned
+  if(playerPerks.length >= PERK_LIMIT){
+    setTimeout(()=> closePerkMenu(), 600);
+  }
+}
+
+// Close menu on background click
+document.getElementById('perkMenuBg').addEventListener('click', closePerkMenu);
+
+function applyPerkEffect(perkId){
+  switch(perkId){
+    case 'juggernog':
+      // Increase max health to 250
+      health = Math.min(250, health + 150);
+      break;
+    case 'speedCola':
+      // Effect applied dynamically in startReload via getReloadMult()
+      break;
+    case 'doubleTap':
+      // Effect applied dynamically in spawnBullet via getFireRateMult()
+      break;
+    case 'quickRevive':
+      // In solo: self-revive ability stored, activated on death
+      // In MP: faster revive speed (applied in tickReviveInteraction)
+      break;
+    case 'staminUp':
+      // Effect applied dynamically in movement via getSpeedMult()
+      break;
+    case 'muleKick':
+      // Give a pistol in slot 3 if not already holding 3 weapons
+      if(inventory.length < 3){
+        const pg = GUNS.pistol;
+        inventory.push({...pg, key:'pistol', ammo:pg.mag, reserve:pg.res});
+        addFeed('Pistol added to slot 3!');
+        updateHUD();
+      }
+      break;
+  }
+}
+
+function getReloadMult(){
+  return playerPerks.includes('speedCola') ? 0.5 : 1.0; // 50% faster reload
+}
+
+function getFireRateMult(){
+  return playerPerks.includes('doubleTap') ? 0.7 : 1.0; // 30% faster fire rate
+}
+
+function getMaxHealth(){
+  return playerPerks.includes('juggernog') ? 250 : 100;
+}
+
+function getReviveSpeedMult(){
+  return playerPerks.includes('quickRevive') ? 0.5 : 1.0; // 50% faster revive
+}
+
+function getSpeedMult(){
+  return playerPerks.includes('staminUp') ? 1.4 : 1.0; // 40% faster movement
+}
+
+function getMaxWeaponSlots(){
+  return playerPerks.includes('muleKick') ? 3 : 2;
+}
+
+function resetPerks(){
+  playerPerks = [];
+  soloQuickReviveUsed = false;
+  knifePacked = false;
+  // Remove mule kick slot 3 weapon if present
+  if(inventory.length > 2){
+    inventory.splice(2);
+    if(activeSlot >= 2){ activeSlot = 0; knifeActive = false; }
+    updateGunVisual(); updateHUD();
+  }
+  updatePerkHUD();
+}
+
+function updatePerkHUD(){
+  const container = document.getElementById('perkHud');
+  container.innerHTML = '';
+  for(const perkId of playerPerks){
+    const perk = PERKS[perkId];
+    if(!perk) continue;
+    const el = document.createElement('div');
+    el.className = 'perkIcon active';
+    el.style.borderColor = perk.cssColor;
+    el.style.color = perk.cssColor;
+    el.style.background = 'rgba(0,0,0,.6)';
+    el.textContent = perk.icon;
+    el.title = perk.name;
+    container.appendChild(el);
+  }
+}
+
+function showPerkPurchaseFlash(perkId){
+  const perk = PERKS[perkId];
+  const el = document.getElementById('perkFlash');
+  document.getElementById('perkFlashIcon').textContent = perk.icon;
+  document.getElementById('perkFlashName').textContent = perk.name;
+  document.getElementById('perkFlashName').style.color = perk.cssColor;
+  document.getElementById('perkFlashName').style.textShadow = '0 0 20px '+perk.cssColor;
+  document.getElementById('perkFlashDesc').textContent = perk.desc;
+  el.classList.add('on');
+  setTimeout(()=> el.classList.remove('on'), 2500);
+}
+
+function playPerkPurchaseSfx(){
+  if(!sfxCtx) return;
+  try {
+    // Musical chime — rising tone sequence
+    const now = sfxCtx.currentTime;
+    for(let i=0;i<3;i++){
+      const osc = sfxCtx.createOscillator();
+      const gain = sfxCtx.createGain();
+      osc.connect(gain); gain.connect(sfxGainNode);
+      osc.type = 'sine';
+      osc.frequency.value = 440 * Math.pow(2, (i*4)/12); // C, E, G#
+      gain.gain.setValueAtTime(0.15, now+i*0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, now+i*0.12+0.4);
+      osc.start(now+i*0.12);
+      osc.stop(now+i*0.12+0.45);
+    }
+  } catch(e){}
+}
+
+// ── QUICK REVIVE: Solo self-revive (one-time use) ──
+function trySoloQuickRevive(){
+  if(mpMode !== 'solo') return false;
+  if(!playerPerks.includes('quickRevive')) return false;
+  if(soloQuickReviveUsed) return false;
+  // Self-revive!
+  soloQuickReviveUsed = true;
+  health = 50;
+  invT = 2.0; // 2 seconds of invincibility after self-revive
+  regenTimer = 5; // start regen immediately
+  // Remove Quick Revive perk (consumed)
+  playerPerks = playerPerks.filter(p => p !== 'quickRevive');
+  updatePerkHUD();
+  updateHUD();
+  addFeed('💚 QUICK REVIVE — Self-revived!');
+  // Flash effect
+  const f = document.getElementById('hflash');
+  f.style.background = 'rgba(0,200,255,.25)';
+  f.style.opacity = '1';
+  setTimeout(()=>{ f.style.opacity='0'; setTimeout(()=> f.style.background='rgba(255,0,0,.2)', 150); }, 400);
+  return true;
 }
 
 function giveGun(key){
@@ -2573,13 +3106,14 @@ function giveGun(key){
     addFeed('Ammo restocked!'); updateHUD(); return true;
   }
   // Fill next empty gun slot, or replace the active gun slot
+  const maxSlots = getMaxWeaponSlots();
   let targetSlot;
-  if(!knifeActive && activeSlot <= 1){
+  if(!knifeActive && activeSlot < maxSlots){
     targetSlot = activeSlot; // replace whichever gun slot is held
-  } else if(inventory.length < 2){
+  } else if(inventory.length < maxSlots){
     targetSlot = inventory.length; // fill next empty slot
   } else {
-    targetSlot = 0; // both full, default replace slot 0
+    targetSlot = 0; // all full, default replace slot 0
   }
   const slot={...g,key,ammo:g.mag,reserve:g.res};
   if(inventory.length <= targetSlot) inventory.push(slot);
@@ -2598,9 +3132,10 @@ function openMysteryBox(){
   credits-=950;
   const key=MB_POOL[Math.floor(Math.random()*MB_POOL.length)];
   const g=GUNS[key];
+  const mbMaxSlots = getMaxWeaponSlots();
   let targetSlot;
-  if(!knifeActive && activeSlot<=1) targetSlot=activeSlot;
-  else if(inventory.length<2) targetSlot=inventory.length;
+  if(!knifeActive && activeSlot<mbMaxSlots) targetSlot=activeSlot;
+  else if(inventory.length<mbMaxSlots) targetSlot=inventory.length;
   else targetSlot=0;
   const slot={...g,key,ammo:g.mag,reserve:g.res};
   if(inventory.length<=targetSlot) inventory.push(slot); else inventory[targetSlot]=slot;
@@ -2620,7 +3155,7 @@ function openMysteryBox(){
 function startWave(w){
   wave=w; waveActive=true;
   const count=4+w*3; zombsLeft=count;
-  for(let i=0;i<count;i++) setTimeout(()=>{ if(alive) spawnZombie(w); },i*650);
+  for(let i=0;i<count;i++) setTimeout(()=>{ if(alive || deadThisRound) spawnZombie(w); },i*650);
   showBanner(w); updateHUD();
   // Broadcast wave start to clients
   if(mpMode !== 'solo' && isHost){
@@ -2633,7 +3168,7 @@ function startWave(w){
 // ══════════════════════════════════════════════════
 function setPause(val){
   paused=val;
-  if(val){ adsActive=false; } // release ADS on pause
+  if(val){ adsActive=false; closePerkMenu(); } // release ADS + close menus on pause
   document.getElementById('pauseScreen').classList.toggle('off',!val);
   document.getElementById('xhair').classList.toggle('show',!val && SETTINGS.showCrosshair);
   if(val){
@@ -2652,7 +3187,7 @@ document.addEventListener('pointerlockchange',()=>{
 });
 
 document.addEventListener('mousemove',e=>{
-  if(!alive||paused||!pointerLocked) return;
+  if((!alive && !deadThisRound)||paused||!pointerLocked) return;
   const sens = SETTINGS.sensitivity * (1 - adsLerp * (1-ADS_SENS_MULT));
   camYaw -= e.movementX*sens;
   if(adsLerp > 0.5){
@@ -2666,6 +3201,8 @@ document.addEventListener('mousemove',e=>{
 
 document.addEventListener('keydown',e=>{
   if(e.code==='Escape'){
+    // If perk menu is open, close it first
+    if(perkMenuOpen){ closePerkMenu(); return; }
     // If settings overlay is open, close it instead of toggling pause
     const sOverlay = document.getElementById('settingsOverlay');
     if(sOverlay && !sOverlay.classList.contains('off')){
@@ -2678,6 +3215,12 @@ document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(!alive||paused) return;
   if(downed) return; // downed players can't do anything except look around
+  // If perk menu is open, E closes it — block all other game input
+  if(perkMenuOpen){
+    const kb2 = SETTINGS.keybinds;
+    if(e.code===kb2.buy){ closePerkMenu(); }
+    return;
+  }
   const kb = SETTINGS.keybinds;
   if(e.code===kb.reload)  startReload();
   if(e.code===kb.dodge){ e.preventDefault(); dodge(); }
@@ -2688,6 +3231,9 @@ document.addEventListener('keydown',e=>{
   }
   if(e.code==='Digit2'){
     if(inventory.length>1){ knifeActive=false; activeSlot=1; updateGunVisual(); updateHUD(); }
+  }
+  if(e.code==='Digit3'){
+    if(playerPerks.includes('muleKick') && inventory.length>2){ knifeActive=false; activeSlot=2; updateGunVisual(); updateHUD(); }
   }
 
   // Knife
@@ -2731,7 +3277,7 @@ function tryADS(on){
   }
 }
 document.addEventListener('mousedown',e=>{
-  if(!alive || paused || downed) return;
+  if(!alive || paused || downed || perkMenuOpen) return;
   if(e.button===0) shooting=true;
   if(e.button===2) tryADS(true);
 });
@@ -2742,7 +3288,7 @@ document.addEventListener('mouseup',e=>{
 
 // Click canvas to (re)acquire pointer lock during play
 canvas.addEventListener('click',()=>{
-  if(alive && !paused && gameRunning) canvas.requestPointerLock();
+  if((alive || deadThisRound) && !paused && gameRunning) canvas.requestPointerLock();
 });
 
 // ══════════════════════════════════════════════════
@@ -2753,6 +3299,10 @@ function loop(ts){
   if(prevT===null){ prevT=ts; renderer.render(scene,cam); return; }
   const dt=Math.min((ts-prevT)/1000,.05); prevT=ts;
   if(alive && !paused) tick(dt,ts);
+  // Dead spectator: keep updating camera, remote players, and scene animations
+  else if(deadThisRound && !paused && gameRunning){
+    tickDeadSpectator(dt, ts);
+  }
   renderer.render(scene,cam);
 }
 requestAnimationFrame(loop);
@@ -2768,8 +3318,9 @@ function tick(dt,ts){
   // Reload
   if(reloading){
     reloadT+=dt;
-    document.getElementById('rlFill').style.width=(reloadT/g.reload*100)+'%';
-    if(reloadT>=g.reload){
+    const effectiveReload = g.reload * getReloadMult(); // SPEED COLA EFFECT
+    document.getElementById('rlFill').style.width=(reloadT/effectiveReload*100)+'%';
+    if(reloadT>=effectiveReload){
       const give=Math.min(g.mag-g.ammo,g.reserve);
       g.ammo+=give; g.reserve-=give; reloading=false;
       document.getElementById('rlWrap').classList.remove('on'); updateHUD();
@@ -2786,11 +3337,14 @@ function tick(dt,ts){
   rollT=0; rollCD=0;
   if(invT>0) invT-=dt;
 
-  // Health regen — starts 5s after last hit, 15hp/s, CoD style
-  if(health>0 && health<100 && !downed){
+  // Health regen — starts 5s after last hit, 30hp/s normal / 50hp/s with Juggernog
+  // JUGGERNOG EFFECT: regen caps at max health (250 if has Juggernog) + faster regen rate
+  const maxHP = getMaxHealth();
+  const regenRate = playerPerks.includes('juggernog') ? 50 : 30;
+  if(health>0 && health<maxHP && !downed){
     regenTimer+=dt;
     if(regenTimer>=5){
-      health=Math.min(100, health+15*dt);
+      health=Math.min(maxHP, health+regenRate*dt);
       updateHUD();
     }
   }
@@ -2833,7 +3387,7 @@ function tick(dt,ts){
     const isMoving = mv.length()>0;
     const sprintKey = _kb.sprint;
     const isSprinting = isMoving && keys[sprintKey];
-    const moveSpeed = isSprinting ? 9 : 5;
+    const moveSpeed = (isSprinting ? 9 : 5) * getSpeedMult();
 
     if(isMoving){
       mv.normalize().applyEuler(new THREE.Euler(0,camYaw,0));
@@ -3018,6 +3572,7 @@ function tick(dt,ts){
   mbLight.intensity=1.5+Math.sin(ts*.003);
 
   animatePaP(ts);
+  animatePerkMachines(ts); // PERK MACHINE SYSTEM
 
   updateBuyPrompt();
   tickPowerups(dt);
@@ -3152,7 +3707,7 @@ function tick(dt,ts){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
-            if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } triggerGameOver(); return; }
+            if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         }
       }
@@ -3272,7 +3827,7 @@ function tick(dt,ts){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
-            if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } triggerGameOver(); return; }
+            if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         } else {
           // Closest target is a remote player — tell them to take damage
@@ -3325,6 +3880,149 @@ function tickDownedCamera(dt){
   playerMesh.rotation.y = camYaw + Math.PI;
 }
 
+// ── Dead spectator tick — orbiting camera, remote players, scene still renders ──
+function tickDeadSpectator(dt, ts){
+  // Orbit camera around last death position
+  tickDownedCamera(dt);
+  // Hide player mesh (we're dead)
+  playerMesh.visible = false;
+  gunGrp.visible = false;
+  fpGroup.visible = false;
+  // Keep remote players updating
+  tickMPSend(dt);
+  tickRemotePlayers(dt);
+  // Keep scene animations going
+  dynLight.position.set(pos.x,3,pos.z);
+  dynLight.intensity=2+Math.sin(ts*.0015)*.5;
+  mbMesh.rotation.y+=dt*1.2;
+  mbBeam.rotation.y+=dt*.8;
+  mbLight.intensity=1.5+Math.sin(ts*.003);
+  animatePaP(ts);
+  animatePerkMachines(ts);
+
+  // HOST ONLY: keep zombie AI and wave logic running even when dead
+  if(isHost){
+    tickHostZombiesWhileDead(dt, ts);
+  }
+
+  // Particles still animate
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.life-=dt;
+    if(p.life<=0){ scene.remove(p.mesh); particles.splice(i,1); continue; }
+    p.vel.y-=12*dt;
+    p.mesh.position.addScaledVector(p.vel,dt);
+    p.mesh.material.opacity=p.life/.5;
+  }
+}
+
+// ── Host zombie AI + wave logic while dead (minimal version of tick's zombie section) ──
+function tickHostZombiesWhileDead(dt, ts){
+  for(const z of zombies){
+    if(!z.alive) continue;
+    z.legPhase+=dt*z.speed*2.5;
+
+    // Find closest ALIVE player (only remote players since host is dead)
+    let closestPos = null;
+    let closestDist = Infinity;
+    for(const rpId in remotePlayers){
+      const rp = remotePlayers[rpId];
+      if(!rp.data.alive || rp.data.downed) continue;
+      const d = rp.mesh.position.distanceTo(z.mesh.position);
+      if(d < closestDist){ closestDist = d; closestPos = rp.mesh.position; }
+    }
+    // Fallback: drift toward host pos if nobody alive
+    if(!closestPos){ closestPos = pos; closestDist = pos.distanceTo(z.mesh.position); }
+
+    const toP = closestPos.clone().sub(z.mesh.position); toP.y=0;
+    const dist = toP.length();
+
+    if(dist>.05){
+      // Context steering (same as normal tick)
+      const NUM_DIRS=16;
+      const ZR=0.5;
+      let bestScore=-Infinity, bestDx=toP.x/dist, bestDz=toP.z/dist;
+      for(let d=0;d<NUM_DIRS;d++){
+        const angle=(d/NUM_DIRS)*Math.PI*2;
+        const dx=Math.sin(angle), dz=Math.cos(angle);
+        const desire=(dx*(toP.x/dist)+dz*(toP.z/dist));
+        let blocked=0;
+        const testX=z.mesh.position.x+dx*ZR*2.5;
+        const testZ=z.mesh.position.z+dz*ZR*2.5;
+        for(const o of OBS){
+          const odx=testX-o.x, odz=testZ-o.z;
+          if(Math.abs(odx)<o.hw+ZR+0.15 && Math.abs(odz)<o.hd+ZR+0.15){ blocked=2.0; break; }
+        }
+        if(Math.abs(testX)>ARENA-1.2||Math.abs(testZ)>ARENA-1.2) blocked=2.0;
+        let sep=0;
+        for(const z2 of zombies){
+          if(z2===z||!z2.alive) continue;
+          const sdx=z2.mesh.position.x-z.mesh.position.x;
+          const sdz=z2.mesh.position.z-z.mesh.position.z;
+          const sd=Math.sqrt(sdx*sdx+sdz*sdz);
+          if(sd<1.2) sep+=(dx*(sdx/sd)+dz*(sdz/sd))*0.4;
+        }
+        const score=desire-blocked-sep;
+        if(score>bestScore){ bestScore=score; bestDx=dx; bestDz=dz; }
+      }
+      z.mesh.position.x+=bestDx*z.speed*dt;
+      z.mesh.position.z+=bestDz*z.speed*dt;
+      resolveObs(z.mesh.position, ZR);
+      clampArena(z.mesh.position);
+      // Push zombie out of alive remote players
+      const allPlayerPositions = [];
+      for(const rpId in remotePlayers){
+        if(remotePlayers[rpId].data.alive) allPlayerPositions.push(remotePlayers[rpId].mesh.position);
+      }
+      const minSep=0.9;
+      for(const pp of allPlayerPositions){
+        const zpx=z.mesh.position.x-pp.x, zpz=z.mesh.position.z-pp.z;
+        const zpDist=Math.sqrt(zpx*zpx+zpz*zpz);
+        if(zpDist<minSep && zpDist>0.01){
+          const push=(minSep-zpDist);
+          z.mesh.position.x+=zpx/zpDist*push;
+          z.mesh.position.z+=zpz/zpDist*push;
+        }
+      }
+      const targetRot = Math.atan2(bestDx, bestDz) + Math.PI;
+      let rotDiff = targetRot - z.mesh.rotation.y;
+      while(rotDiff > Math.PI) rotDiff -= Math.PI*2;
+      while(rotDiff < -Math.PI) rotDiff += Math.PI*2;
+      z.mesh.rotation.y += rotDiff * Math.min(1, dt * 10);
+      const legSwing = Math.sin(z.legPhase) * 0.38;
+      if(z.mesh.userData.legL) z.mesh.userData.legL.rotation.x =  legSwing;
+      if(z.mesh.userData.legR) z.mesh.userData.legR.rotation.x = -legSwing;
+    }
+
+    // Melee damage — zombie hits closest alive remote player
+    const meleeRange = z.elite ? 1.6 : 1.3;
+    if(dist<meleeRange && closestPos !== pos){
+      z.atkT-=dt;
+      if(z.atkT<=0){
+        z.atkT=z.atkCD;
+        for(const rpId in remotePlayers){
+          if(remotePlayers[rpId].mesh.position === closestPos){
+            socket.emit('zombie_melee_hit', { targetId: rpId, dmg: z.meleeDmg||10 });
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Wave logic (host still manages waves while dead)
+  const aliveZ=zombies.filter(z=>z.alive).length;
+  if(waveActive && aliveZ===0 && zombsLeft<=0){
+    waveActive=false; waveDelay=4; score+=500+wave*200; updateHUD();
+    if(mpMode !== 'solo' && isHost){
+      socket.emit('wave_event', { type:'wave_end', wave });
+    }
+  }
+  if(!waveActive && waveDelay>0){
+    waveDelay-=dt;
+    if(waveDelay<=0) startWave(wave+1);
+  }
+}
+
 // ── Buy prompt shows "revive" when near downed teammates ──
 function tickBuyPromptRevive(){
   const bp = document.getElementById('buyPrompt');
@@ -3369,11 +4067,12 @@ function tickReviveInteraction(dt){
       reviveProgress = 0;
     }
     reviveProgress += dt;
-    const pct = Math.min(100, (reviveProgress / REVIVE_TIME) * 100);
+    const effectiveReviveTime = REVIVE_TIME * getReviveSpeedMult(); // QUICK REVIVE EFFECT
+    const pct = Math.min(100, (reviveProgress / effectiveReviveTime) * 100);
     document.getElementById('reviveFill').style.width = pct + '%';
     revBar.classList.add('on');
 
-    if(reviveProgress >= REVIVE_TIME){
+    if(reviveProgress >= effectiveReviveTime){
       // Revive complete!
       socket.emit('player_revived', { targetId: reviveTarget });
       revBar.classList.remove('on');
@@ -3396,6 +4095,7 @@ function enterDownedState(){
   downedTimer = BLEEDOUT_TIME;
   shooting = false;
   adsActive = false; adsLerp = 0; fpPitch = 0;
+  closePerkMenu(); // close perk menu if open
   // Show downed overlay
   document.getElementById('downedOverlay').classList.add('on');
   document.getElementById('downedText').classList.add('on');
@@ -3420,18 +4120,24 @@ function getRevived(){
 
 // ── Bleed out (downed timer expired) — true death ──
 function triggerGameOver(){
+  // In multiplayer: enter dead-spectator state (respawn next wave) instead of ending the game
+  if(mpMode !== 'solo'){
+    enterDeadSpectatorState();
+    return;
+  }
+  // Solo: full game over as before
   alive=false; paused=false; gameRunning=false;
   downed=false; downedTimer=0; beingRevived=false;
   reviveTarget=null; reviveProgress=0;
   adsActive=false; adsLerp=0; fpPitch=0;
+  closePerkMenu(); // close perk menu if open
   resetPowerups();
+  resetPerks();
   gameMusic.pause();
   // Hide downed UI
   document.getElementById('downedOverlay').classList.remove('on');
   document.getElementById('downedText').classList.remove('on');
   document.getElementById('reviveBar').classList.remove('on');
-  // Notify server that we died (fully dead, not just downed)
-  if(mpMode !== 'solo') socket.emit('player_died');
   cleanupRemotePlayers();
   document.exitPointerLock();
   document.getElementById('xhair').classList.remove('show');
@@ -3441,9 +4147,59 @@ function triggerGameOver(){
   document.getElementById('goScreen').classList.remove('off');
 }
 
+// ── Dead spectator state (multiplayer) — dead this round, respawn next wave ──
+function enterDeadSpectatorState(){
+  alive=false;
+  downed=false; downedTimer=0; beingRevived=false;
+  reviveTarget=null; reviveProgress=0;
+  deadThisRound=true;
+  shooting=false;
+  adsActive=false; adsLerp=0; fpPitch=0;
+  closePerkMenu();
+  resetPowerups();
+  resetPerks(); // lose all perks
+  // Reset to pistol only (lose all guns)
+  inventory=[
+    {...GUNS.fists, key:'fists', ammo:999, reserve:999},
+    {...GUNS.pistol, key:'pistol', ammo:GUNS.pistol.mag, reserve:GUNS.pistol.res},
+  ];
+  activeSlot=1; knifeActive=false; knifePacked=false;
+  updateGunVisual(); updateHUD();
+  // Hide downed UI, show dead spectator overlay
+  document.getElementById('downedOverlay').classList.remove('on');
+  document.getElementById('downedText').classList.remove('on');
+  document.getElementById('reviveBar').classList.remove('on');
+  document.getElementById('xhair').classList.remove('show');
+  document.getElementById('deadSpectateOverlay').classList.add('on');
+  document.getElementById('deadSpectateText').classList.add('on');
+  // Notify server
+  socket.emit('player_died');
+  addFeedSafe('You died! Respawning next round...');
+}
+
+// ── Respawn from dead spectator state (called at wave end) ──
+function respawnFromDead(){
+  if(!deadThisRound) return;
+  deadThisRound=false;
+  alive=true;
+  health=100;
+  // Teleport to spawn position
+  const sp = PLAYER_SPAWNS[mySpawnIdx] || PLAYER_SPAWNS[0];
+  pos.set(sp.x, sp.y, sp.z);
+  playerMesh.position.copy(pos);
+  playerMesh.rotation.z = 0;
+  // Hide dead spectator overlay
+  document.getElementById('deadSpectateOverlay').classList.remove('on');
+  document.getElementById('deadSpectateText').classList.remove('on');
+  if(SETTINGS.showCrosshair) document.getElementById('xhair').classList.add('show');
+  updateGunVisual(); updateHUD();
+  addFeedSafe('You have respawned!');
+}
+
 function goToMenu(){
   alive=false; paused=false; gameRunning=false;
   downed=false; downedTimer=0; reviveTarget=null; reviveProgress=0; beingRevived=false;
+  deadThisRound=false;
   adsActive=false; adsLerp=0; fpPitch=0;
   gameMusic.pause();
   gameMusic.currentTime = 0;
@@ -3455,6 +4211,8 @@ function goToMenu(){
   document.getElementById('downedOverlay').classList.remove('on');
   document.getElementById('downedText').classList.remove('on');
   document.getElementById('reviveBar').classList.remove('on');
+  document.getElementById('deadSpectateOverlay').classList.remove('on');
+  document.getElementById('deadSpectateText').classList.remove('on');
   // Disconnect from room if in multiplayer
   if(mpMode !== 'solo'){ socket.disconnect(); socket.connect(); }
   mpMode='solo';
@@ -3687,6 +4445,25 @@ document.getElementById('sFov').addEventListener('input', e=>{
 // Crosshair toggle
 document.getElementById('sXhair').addEventListener('change', e=>{
   SETTINGS.showCrosshair = e.target.checked;
+});
+
+// Fullscreen toggle
+document.getElementById('sFullscreen').addEventListener('change', e=>{
+  if(e.target.checked){
+    const el = document.documentElement;
+    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen).call(el);
+  } else {
+    if(document.fullscreenElement||document.webkitFullscreenElement){
+      (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen).call(document);
+    }
+  }
+});
+// Keep checkbox in sync if user exits fullscreen via Esc/F11
+document.addEventListener('fullscreenchange', ()=>{
+  document.getElementById('sFullscreen').checked = !!document.fullscreenElement;
+});
+document.addEventListener('webkitfullscreenchange', ()=>{
+  document.getElementById('sFullscreen').checked = !!document.webkitFullscreenElement;
 });
 
 // Keybind rebinding
@@ -4283,7 +5060,62 @@ socket.on('player_died', ({ id }) => {
 });
 
 socket.on('game_over_all', () => {
-  triggerGameOver();
+  // In multiplayer, if we're in dead spectator state, exit it before game over
+  if(deadThisRound){
+    deadThisRound=false;
+    document.getElementById('deadSpectateOverlay').classList.remove('on');
+    document.getElementById('deadSpectateText').classList.remove('on');
+  }
+  // Full game over for everyone
+  alive=false; paused=false; gameRunning=false;
+  downed=false; downedTimer=0; beingRevived=false;
+  reviveTarget=null; reviveProgress=0;
+  adsActive=false; adsLerp=0; fpPitch=0;
+  closePerkMenu();
+  resetPowerups();
+  resetPerks();
+  gameMusic.pause();
+  document.getElementById('downedOverlay').classList.remove('on');
+  document.getElementById('downedText').classList.remove('on');
+  document.getElementById('reviveBar').classList.remove('on');
+  cleanupRemotePlayers();
+  document.exitPointerLock();
+  document.getElementById('xhair').classList.remove('show');
+  document.getElementById('goScore').textContent=score.toLocaleString();
+  document.getElementById('goWave').textContent=wave;
+  document.getElementById('goKills').textContent=kills;
+  document.getElementById('goScreen').classList.remove('off');
+});
+
+// ── Respawn dead players at wave end ──
+socket.on('respawn_dead_players', ({ players }) => {
+  // Respawn local player if we're dead this round
+  if(deadThisRound){
+    respawnFromDead();
+  }
+  // Respawn remote players who were dead
+  for(const p of players){
+    if(p.id === socket.id) continue; // already handled above
+    if(remotePlayers[p.id]){
+      remotePlayers[p.id].data.alive = true;
+      remotePlayers[p.id].data.downed = false;
+      remotePlayers[p.id].mesh.visible = true;
+      remotePlayers[p.id].mesh.rotation.z = 0;
+      remotePlayers[p.id].mesh.position.y = 0;
+      // Move to spawn position
+      const sp = PLAYER_SPAWNS[p.spawnIdx] || PLAYER_SPAWNS[0];
+      if(sp){
+        remotePlayers[p.id].mesh.position.set(sp.x, 0, sp.z);
+        remotePlayers[p.id].targetPos = { x: sp.x, y: 0, z: sp.z };
+      }
+      // Remove downed light if any
+      if(remotePlayers[p.id].downedLight){
+        remotePlayers[p.id].mesh.remove(remotePlayers[p.id].downedLight);
+        remotePlayers[p.id].downedLight = null;
+      }
+      addFeedSafe('A teammate has respawned!');
+    }
+  }
 });
 
 socket.on('feed_msg', ({ name, text }) => {
@@ -4457,6 +5289,7 @@ socket.on('zombie_melee_hit', data => {
   hitFlash(); updateHUD();
   if(health <= 0){
     if(mpMode !== 'solo' && !downed){ enterDownedState(); return; }
+    if(trySoloQuickRevive()) return;
     triggerGameOver();
   }
 });
@@ -4513,10 +5346,14 @@ function startGameMP(spawnPos){
   waveActive=false; waveDelay=0; zombsLeft=0;
   camYaw=0; camPitch=0.45; paused=false; shooting=false; adsActive=false; adsLerp=0; fpPitch=0;
   downed=false; downedTimer=0; reviveTarget=null; reviveProgress=0; beingRevived=false;
+  deadThisRound=false;
   document.getElementById('downedOverlay').classList.remove('on');
   document.getElementById('downedText').classList.remove('on');
   document.getElementById('reviveBar').classList.remove('on');
+  document.getElementById('deadSpectateOverlay').classList.remove('on');
+  document.getElementById('deadSpectateText').classList.remove('on');
   resetPowerups();
+  resetPerks();
 
   inventory=[
     {...GUNS.fists, key:'fists', ammo:999, reserve:999},
