@@ -1834,7 +1834,7 @@ const PAP_COST = 5000;
 // Upgraded weapon definitions — damage boost, bigger mag, more reserve, new name + color
 const PAP_UPGRADES = {
   knife:       {name:"KATANA",        dmg:300, mag:999,res:999, color:0xff00cc, rof:0.45, melee:true},
-  pistol:      {name:"MUSTANG",       dmg:90,  mag:20, res:120, color:0xcc44ff, rof:0.25, explosive:true},
+  pistol:      {name:"MUSTANG",       dmg:200, mag:20, res:120, color:0xcc44ff, rof:0.25, explosive:true},
   smg:         {name:"THE AFTERBURNER",dmg:55, mag:45, res:270, color:0xaa22ff, rof:0.06},
   shotgun:     {name:"THE BEAR JAW",  dmg:130, mag:8,  res:64,  color:0x9900ff, rof:0.6, pellets:8},
   ak47:        {name:"AK-47U REBORN", dmg:110, mag:40, res:200, color:0xbb33ff, rof:0.10},
@@ -2063,10 +2063,10 @@ function buildFPWeapon(){
     fpArmR.position.set(.28, -.25, -.3);
     fpArmL.position.set(-.1, -.3, -.48);
   } else if(key === 'knife' && knifePacked){
-    // Katana — held two-handed, longer blade extends forward
-    fpGunGrp.position.set(.12, -.16, -.45);
-    fpArmR.position.set(.2, -.2, -.28);
-    fpArmL.position.set(-.05, -.24, -.38);
+    // Katana — held two-handed, much longer blade extends forward
+    fpGunGrp.position.set(.1, -.14, -.38);
+    fpArmR.position.set(.18, -.18, -.24);
+    fpArmL.position.set(-.04, -.22, -.34);
   } else if(key === 'knife'){
     fpGunGrp.position.set(.2, -.2, -.4);
     fpArmR.position.set(.24, -.22, -.3);
@@ -2112,42 +2112,52 @@ function buildWeaponModel(key, color, isPacked){
       break;
     case 'knife':
       if(isPacked){
-        // ═══ KATANA — distinct Japanese sword model ═══
-        // Long wrapped handle (tsuka)
-        bx(.045,.055,.28,0x1a0a2a,0,0,.12);
-        // Handle wrap pattern (diamond ito wrap)
-        bx(.05,.02,.05,0xff00cc,0,.03,.18,0xff00cc);
-        bx(.05,.02,.05,0xff00cc,0,.03,.1,0xff00cc);
-        bx(.05,.02,.05,0xff00cc,0,.03,.02,0xff00cc);
-        // Circular guard (tsuba)
+        // ═══ KATANA — dramatically different from knife ═══
+        // Long wrapped handle (tsuka) — much longer than knife grip
+        bx(.04,.05,.36,0x1a0a2a,0,0,.18);
+        // Diamond wrap pattern (ito) — 5 wraps along the long handle
+        for(let iw=0;iw<5;iw++) bx(.048,.018,.035,0xff00cc,0,.028,.05+iw*.07,0xff00cc);
+        // Oval guard (tsuba) — large and prominent
         const tsuba = new THREE.Mesh(
-          new THREE.CylinderGeometry(.07,.07,.012,12),
+          new THREE.CylinderGeometry(.1,.1,.015,16),
           mat(0x222222,0xff00cc)
         );
-        tsuba.position.set(0,0,-.04); tsuba.rotation.x=Math.PI/2;
+        tsuba.position.set(0,0,-.02); tsuba.rotation.x=Math.PI/2;
         tsuba.castShadow=true; gunPartsGrp.add(tsuba);
-        // Guard accent ring
+        // Guard accent ring — glowing magenta border
         const tsubaRing = new THREE.Mesh(
-          new THREE.TorusGeometry(.065,.008,6,16),
+          new THREE.TorusGeometry(.095,.01,8,20),
           mat(0xff00cc,0xff00cc)
         );
-        tsubaRing.position.set(0,0,-.04); tsubaRing.rotation.x=Math.PI/2;
+        tsubaRing.position.set(0,0,-.02); tsubaRing.rotation.x=Math.PI/2;
         gunPartsGrp.add(tsubaRing);
-        // Long curved blade — katana is much longer than knife
-        bx(.035,.012,.52,0xe8e8f0,0,.006,-.32);
-        // Back ridge of blade (shinogi)
-        bx(.008,.016,.5,0xbbbbcc,.016,.006,-.31);
-        // Cutting edge highlight (ha) — bright glowing edge
-        const edgeMat = new THREE.MeshLambertMaterial({color:0xffffff, emissive:new THREE.Color(0xff44cc), emissiveIntensity:0.6});
-        const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.014,.5), edgeMat);
-        edge.position.set(-.018,.006,-.31); edge.castShadow=true; gunPartsGrp.add(edge);
-        // Blade tip (kissaki) — angled
-        const tipMat = new THREE.MeshLambertMaterial({color:0xe8e8f0, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.4});
-        const tip = new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.04), tipMat);
-        tip.position.set(0,.006,-.585); tip.rotation.y=0.3;
+        // ── Curved blade built from 3 segments for katana silhouette ──
+        // Base segment (near guard)
+        const seg1 = bx(.032,.01,.3,0xe8e8f0,0,.006,-.19);
+        seg1.rotation.y = 0.01;
+        // Mid segment (slight curve)
+        const seg2 = bx(.03,.01,.3,0xe8e8f0,.008,.006,-.48);
+        seg2.rotation.y = 0.03;
+        // Tip segment (more curve + taper at kissaki)
+        const seg3 = bx(.025,.009,.16,0xe8e8f0,.018,.006,-.72);
+        seg3.rotation.y = 0.06;
+        // Back ridge (shinogi) — runs full length
+        bx(.006,.014,.7,0xbbbbcc,.02,.006,-.38);
+        // Cutting edge (ha) — glowing bright edge along full blade
+        const edgeMat = new THREE.MeshLambertMaterial({color:0xffffff, emissive:new THREE.Color(0xff44cc), emissiveIntensity:0.7});
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.012,.72), edgeMat);
+        edge.position.set(-.016,.006,-.38); edge.castShadow=true; gunPartsGrp.add(edge);
+        // Blade tip (kissaki) — sharply angled point
+        const tipMat = new THREE.MeshLambertMaterial({color:0xe8e8f0, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.5});
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(.022,.009,.05), tipMat);
+        tip.position.set(.02,.006,-.82); tip.rotation.y=0.4;
         tip.castShadow=true; gunPartsGrp.add(tip);
         // Pommel cap (kashira)
-        bx(.05,.06,.03,0x222222,0,0,.27,0xff00cc);
+        bx(.048,.055,.03,0x222222,0,0,.37,0xff00cc);
+        // Blade glow aura — subtle emissive strip under blade
+        const auraMat = new THREE.MeshLambertMaterial({color:0xff00cc, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.9, transparent:true, opacity:0.3});
+        const aura = new THREE.Mesh(new THREE.BoxGeometry(.05,.004,.7), auraMat);
+        aura.position.set(0,-.003,-.38); gunPartsGrp.add(aura);
       } else {
         // ═══ STANDARD KNIFE ═══
         // Handle (wrapped grip)
@@ -3155,6 +3165,9 @@ function applyPerkEffect(perkId){
         const pg = GUNS.pistol;
         inventory.push({...pg, key:'pistol', ammo:pg.mag, reserve:pg.res});
         addFeed('Pistol added to slot 3!');
+        // Refresh weapon visuals so current gun model stays visible
+        updateGunVisual();
+        fpCurrentWeaponKey = ''; // force FP weapon rebuild on next ADS
         updateHUD();
       }
       break;
@@ -3680,8 +3693,8 @@ function tick(dt,ts){
     // SHOW first-person arms + weapon
     fpGroup.visible = true;
 
-    // Build FP weapon if needed
-    const curKey = curGunADS.key || (knifeActive ? 'knife' : 'fists');
+    // Build FP weapon if needed — include packed state in key to catch PaP transitions
+    const curKey = (curGunADS.key || (knifeActive ? 'knife' : 'fists')) + (curGunADS.packed ? '_pap' : '');
     if(fpCurrentWeaponKey !== curKey){
       buildFPWeapon();
     }
@@ -5103,26 +5116,21 @@ function makeNameSprite(name, color){
   const ctx = canvas.getContext('2d');
   canvas.width = 256; canvas.height = 64;
   ctx.clearRect(0,0,256,64);
-  // Background
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  const r = 8;
-  ctx.beginPath();
-  // roundRect fallback for older browsers
-  if(ctx.roundRect){
-    ctx.roundRect(4, 4, 248, 56, r);
-  } else {
-    ctx.rect(4, 4, 248, 56);
-  }
-  ctx.fill();
+  // No background — text only
   // Text
   ctx.font = 'bold 28px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // Color outline
+  // Dark outline for readability (replaces the old black background box)
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.lineWidth = 4;
+  ctx.strokeText(name, 128, 32);
+  // Color outline on top
   const hex = '#' + (color & 0xffffff).toString(16).padStart(6,'0');
   ctx.strokeStyle = hex;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.strokeText(name, 128, 32);
+  // White fill text
   ctx.fillStyle = '#ffffff';
   ctx.fillText(name, 128, 32);
 
@@ -5146,22 +5154,26 @@ function buildRemoteWeaponModel(grp, gunKey, packed){
   if(packed){ mat.emissive = new THREE.Color(0xaa22ff); mat.emissiveIntensity = 0.3; }
 
   if(gunKey === 'knife' && packed){
-    // Katana — long glowing blade
+    // Katana — dramatically longer curved blade (3 segments)
     const katMat = new THREE.MeshLambertMaterial({color:0xe8e8f0, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.5});
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(.03,.012,.55), katMat);
-    blade.position.set(0,0,-.3); grp.add(blade);
-    // Edge glow
+    const seg1 = new THREE.Mesh(new THREE.BoxGeometry(.028,.01,.3), katMat);
+    seg1.position.set(0,0,-.2); seg1.rotation.y=0.01; grp.add(seg1);
+    const seg2 = new THREE.Mesh(new THREE.BoxGeometry(.026,.01,.3), katMat);
+    seg2.position.set(.008,0,-.49); seg2.rotation.y=0.03; grp.add(seg2);
+    const seg3 = new THREE.Mesh(new THREE.BoxGeometry(.022,.009,.14), katMat);
+    seg3.position.set(.016,0,-.7); seg3.rotation.y=0.06; grp.add(seg3);
+    // Edge glow — full length
     const edgeMat = new THREE.MeshLambertMaterial({color:0xff44cc, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.7});
-    const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.014,.52), edgeMat);
-    edge.position.set(-.016,0,-.3); grp.add(edge);
-    // Handle
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(.04,.05,.25),
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(.003,.012,.7), edgeMat);
+    edge.position.set(-.014,0,-.38); grp.add(edge);
+    // Long handle (tsuka)
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(.038,.048,.34),
       new THREE.MeshLambertMaterial({color:0x1a0a2a}));
-    handle.position.set(0,0,.1); grp.add(handle);
-    // Guard (tsuba)
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(.08,.06,.012),
+    handle.position.set(0,0,.15); grp.add(handle);
+    // Large oval guard (tsuba)
+    const guard = new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.014,12),
       new THREE.MeshLambertMaterial({color:0x222222, emissive:new THREE.Color(0xff00cc), emissiveIntensity:0.3}));
-    guard.position.set(0,0,-.03); grp.add(guard);
+    guard.position.set(0,0,-.03); guard.rotation.x=Math.PI/2; grp.add(guard);
   } else if(gunKey === 'knife'){
     // Standard knife
     const blade = new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.35), mat);
