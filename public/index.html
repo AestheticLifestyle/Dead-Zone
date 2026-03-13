@@ -262,8 +262,8 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 
 /* ── MAP SELECTION ── */
 #mapSelectScreen{background:rgba(0,0,0,.92);cursor:default}
-.map-grid{display:flex;gap:18px;margin-top:28px;flex-wrap:wrap;justify-content:center}
-.map-card{width:240px;padding:20px 16px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:.25s;text-align:center;position:relative;overflow:hidden;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.map-grid{display:flex;gap:18px;margin-top:28px;flex-wrap:wrap;justify-content:center;max-width:1100px;padding:0 12px}
+.map-card{width:240px;padding:20px 16px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:.25s;text-align:center;position:relative;overflow:hidden;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-sizing:border-box}
 .map-card:hover{border-color:rgba(255,80,80,.6);box-shadow:0 0 30px rgba(255,26,26,.25);transform:scale(1.03)}
 .map-card.selected{border-color:#ff1a1a;box-shadow:0 0 40px rgba(255,26,26,.4)}
 .map-card .mc-name{font-size:16px;font-weight:700;letter-spacing:4px;color:#fff;text-transform:uppercase;margin-bottom:6px}
@@ -330,6 +330,18 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
   .srow input[type=range]{height:28px;padding:12px 0;background:transparent;touch-action:auto}
   .srow{gap:8px;flex-wrap:nowrap}
   .srow input[type=range]{max-width:none;flex:1;min-width:100px}
+  /* ── Mobile map select fix ── */
+  #mapSelectScreen{overflow-y:auto;-webkit-overflow-scrolling:touch;justify-content:flex-start;padding:40px 0 30px}
+  #mapSelectScreen .gtitle{font-size:28px;margin-bottom:4px}
+  .map-grid{gap:10px;margin-top:16px;padding:0 16px;flex-direction:column;align-items:center}
+  .map-card{width:90%;max-width:320px;padding:14px 12px;display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left}
+  .map-card .mc-icon{font-size:28px;margin-bottom:0;flex-shrink:0}
+  .map-card .mc-info{flex:1;min-width:0}
+  .map-card .mc-name{font-size:13px;letter-spacing:2px;margin-bottom:3px}
+  .map-card .mc-theme{font-size:8px;letter-spacing:2px;margin-bottom:6px}
+  .map-card .mc-desc{font-size:9px;line-height:1.4}
+  .map-card .mc-tag{font-size:7px;top:6px;right:6px;padding:1px 4px}
+  #mapSelectPlayBtn{margin-top:16px !important}
 }
 
 /* ══════ BOSS ZOMBIE HEALTH BAR ══════ */
@@ -5032,9 +5044,11 @@ function renderMapGrid(){
     card.dataset.mapId = id;
     card.innerHTML = `
       <div class="mc-icon">${info.icon}</div>
-      <div class="mc-name">${info.name}</div>
-      <div class="mc-theme">${info.theme}</div>
-      <div class="mc-desc">${info.desc}</div>
+      <div class="mc-info">
+        <div class="mc-name">${info.name}</div>
+        <div class="mc-theme">${info.theme}</div>
+        <div class="mc-desc">${info.desc}</div>
+      </div>
       ${info.tag ? '<div class="mc-tag">'+info.tag+'</div>' : ''}
     `;
     card.addEventListener('click', ()=>{
