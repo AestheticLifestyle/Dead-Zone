@@ -331,6 +331,14 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
   .srow{gap:8px;flex-wrap:nowrap}
   .srow input[type=range]{max-width:none;flex:1;min-width:100px}
 }
+
+/* ══════ BOSS ZOMBIE HEALTH BAR ══════ */
+#bossBar{position:fixed;top:28px;left:50%;transform:translateX(-50%);width:420px;text-align:center;pointer-events:none;opacity:0;transition:opacity .4s;z-index:20}
+#bossBar.on{opacity:1}
+#bossName{font-size:11px;letter-spacing:6px;color:#ff4444;text-transform:uppercase;text-shadow:0 0 12px rgba(255,40,40,.8);margin-bottom:4px}
+#bossHpTrack{width:100%;height:10px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden;border:1px solid rgba(255,60,60,.25)}
+#bossHpFill{height:100%;width:100%;background:linear-gradient(90deg,#cc0000,#ff2222);box-shadow:0 0 12px rgba(255,0,0,.6);transition:width .15s;border-radius:5px}
+#bossHpTxt{font-size:9px;letter-spacing:3px;color:rgba(255,180,180,.5);margin-top:2px}
 </style>
 </head>
 <body>
@@ -468,6 +476,9 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 
 <!-- Wave banner -->
 <div id="wbanner"><div id="wbNum">WAVE 1</div><div id="wbSub">Survive the horde</div></div>
+
+<!-- BOSS ZOMBIE HEALTH BAR -->
+<div id="bossBar"><div id="bossName">THE ABOMINATION</div><div id="bossHpTrack"><div id="bossHpFill"></div></div><div id="bossHpTxt"></div></div>
 
 <!-- Overlays -->
 <div id="hflash"></div>
@@ -681,6 +692,7 @@ let camYaw=0, camPitch=0.45;
 let pointerLocked=false;
 let prevT=null;
 let shooting=false;
+let burstQueue=0, burstCD=0; // burst-fire: remaining rounds in burst, delay between burst shots
 let activeSlot=0;
 let knifeActive=false; // true when knife is equipped via F
 let knifePacked=false; // true when knife has been Pack-a-Punched to KATANA
@@ -702,6 +714,18 @@ const HEADSHOT_MULT     = 2.0;  // damage multiplier for headshots (all guns unl
 const HEADSHOT_Y_NORMAL = 1.33; // Y threshold above zombie feet for normal zombies (neck line)
 const HEADSHOT_Y_ELITE  = 1.33; // same threshold — scaled by elite scale factor at check time
 let headshotCount = 0;          // lifetime headshot counter (for stats/HUD)
+
+// ══════ BOSS ZOMBIE SYSTEM CONFIG ══════
+const BOSS_SPAWN_INTERVAL = 7;   // spawn boss every N rounds (7, 14, 21, ...)
+const BOSS_SCALE          = 2.0; // visual scale (2x normal size)
+const BOSS_HP_MULT        = 12;  // HP multiplier vs base HP (boss gets baseHp * 12)
+const BOSS_SPEED_MULT     = 0.6; // speed multiplier (slower but heavy)
+const BOSS_MELEE_DMG      = 80;  // melee damage per hit
+const BOSS_ATK_CD         = 1.0; // attack cooldown in seconds
+const BOSS_POINTS_MULT    = 10;  // score/credit multiplier on kill
+const BOSS_NAMES = ['THE ABOMINATION','THE BRUTE','CORPSE TITAN','FLESH COLOSSUS','THE UNDYING'];
+let activeBoss = null;           // reference to the current boss zombie object (null = no boss alive)
+let bossRoundActive = false;     // true during a boss wave
 
 // FP weapon vars — created later after cam/scene/gunPartsGrp exist
 let fpGroup, fpArmR, fpArmL, fpGunGrp;
@@ -841,6 +865,74 @@ const MAPS = {
     decorations: 'redline', // flag to trigger custom decorator
     // SINGLE PERK MACHINE — near gas station
     perkMachinePos: {x:-12,y:0,z:13},
+  },
+  outpost: {
+    id:'outpost', name:'Outpost Omega', icon:'🪖',
+    theme:'Destroyed military base',
+    desc:'A bombed-out military outpost. Watchtowers, tanks, sandbag checkpoints, and a fortified command building. Nowhere is safe.',
+    tag:'NEW',
+    arena: 48,
+    groundColor: 0x1a1408,
+    fogColor: 0x0a0a08, fogDensity: 0.022,
+    clearColor: 0x0a0a08,
+    ambientColor: 0x222218, ambientIntensity: 1.3,
+    sunColor: 0x667788, sunIntensity: 0.7,
+    sunPos: {x:-20,y:35,z:-15},
+    gridColor1: 0x1e1a10, gridColor2: 0x141008,
+    perimeterCount: 0, perimeterColor: 0x1a1a1a,
+    perimeterRadius: 49, perimeterSpread: 3,
+    obstacles: [
+      // ── Main Command Building (north centre) ──
+      {x:0,z:-30,w:18,h:5,d:12},
+      // ── East Shed (Pack-A-Punch area) ──
+      {x:16,z:-30,w:7,h:3.5,d:7},
+      // ── Inner courtyard walls (north zone) ──
+      {x:-8,z:-14,w:14,h:1.8,d:0.6},    // north wall left
+      {x:8,z:-14,w:14,h:1.8,d:0.6},     // north wall right
+      {x:-16,z:-6,w:0.6,h:1.8,d:10},    // west partition
+      {x:16,z:-6,w:0.6,h:1.8,d:10},     // east partition
+      // ── Inner courtyard walls (south zone) ──
+      {x:-7,z:12,w:12,h:1.8,d:0.6},     // south wall left
+      {x:7,z:12,w:12,h:1.8,d:0.6},      // south wall right
+      {x:-14,z:16,w:0.6,h:1.8,d:8},     // sw partition
+      {x:14,z:16,w:0.6,h:1.8,d:8},      // se partition
+      // ── Checkpoints (sandbag barricades) ──
+      {x:-12,z:2,w:8,h:1,d:1.5},        // left mid-checkpoint
+      {x:12,z:2,w:8,h:1,d:1.5},         // right mid-checkpoint
+      {x:0,z:24,w:8,h:1,d:1.5},         // south checkpoint
+      // ── Destroyed Vehicles ──
+      {x:-14,z:-22,w:3,h:2.2,d:5},      // truck 1 (north-west)
+      {x:-18,z:-14,w:3,h:2.2,d:5},      // truck 2 (west)
+      {x:24,z:-4,w:4,h:1.6,d:6},        // tank east
+      {x:-24,z:4,w:4,h:1.6,d:6},        // tank west
+      {x:-16,z:28,w:2.5,h:1.4,d:4},     // jeep south-west
+      {x:20,z:24,w:4,h:1.6,d:6},        // tank south-east
+      {x:6,z:36,w:2.5,h:1.4,d:4},       // jeep south entrance
+      // ── Watchtower bases (corners + mid-sides) ──
+      {x:-42,z:-38,w:3.5,h:8,d:3.5},    // NW tower
+      {x:42,z:-38,w:3.5,h:8,d:3.5},     // NE tower
+      {x:-42,z:38,w:3.5,h:8,d:3.5},     // SW tower
+      {x:42,z:38,w:3.5,h:8,d:3.5},      // SE tower
+      {x:-44,z:0,w:3,h:7,d:3},          // W mid tower
+      {x:44,z:0,w:3,h:7,d:3},           // E mid tower
+      // ── Scattered props ──
+      {x:-6,z:-24,w:1.2,h:1.2,d:1.2},   // crate
+      {x:8,z:-24,w:1,h:1.2,d:1},        // barrel
+      {x:-14,z:6,w:1.2,h:1.2,d:1.2},    // crate near checkpoint
+      {x:14,z:5,w:1,h:1.2,d:1},         // barrel near checkpoint
+      {x:-32,z:-16,w:1.2,h:1.2,d:1.2},  // crate west
+      {x:34,z:12,w:1.2,h:1.2,d:1.2},    // crate east
+      {x:-28,z:24,w:1,h:1.2,d:1},       // barrel sw
+      {x:30,z:-28,w:1,h:1.2,d:1},       // barrel ne
+    ],
+    obstacleColors: [0x2a2018, 0x1e1810, 0x3a3020, 0x141008],
+    mysteryBoxPos: {x:0,y:0,z:-8},         // exposed in north courtyard (risky)
+    papPos: {x:16,y:0,z:-27},              // guarded east shed area
+    playerSpawns: [{x:3,y:0,z:30},{x:-3,y:0,z:30},{x:3,y:0,z:26},{x:-3,y:0,z:26}],
+    soloSpawn: {x:0,y:0,z:28},
+    zombieSpawnRadius: 47, zombieSpawnSpread: 5,
+    decorations: 'outpost',
+    perkMachinePos: {x:-20,y:0,z:24}, perkMachineRot: Math.PI/2,
   },
   blackwater: {
     id:'blackwater', name:'Blackwater Docks', icon:'⚓',
@@ -1052,6 +1144,7 @@ function buildMap(mapId){
   // Map-specific decorations
   if(cfg.decorations === 'redline') buildRedlineDecorations();
   if(cfg.decorations === 'blackwater') buildBlackwaterDecorations();
+  if(cfg.decorations === 'outpost') buildOutpostDecorations();
 
   // Update player spawn positions for multiplayer
   PLAYER_SPAWNS.length=0;
@@ -1802,6 +1895,243 @@ function buildBlackwaterDecorations(){
   addObj(anchorCross);
 }
 
+function buildOutpostDecorations(){
+  const addObj = (m) => { scene.add(m); mapSceneObjects.push(m); };
+
+  // ── Shared materials ──
+  const matConcrete = new THREE.MeshLambertMaterial({color:0x6b6b6b});
+  const matSandbag  = new THREE.MeshLambertMaterial({color:0x8b7d5e});
+  const matMetal    = new THREE.MeshLambertMaterial({color:0x4a4a4a});
+  const matRust     = new THREE.MeshLambertMaterial({color:0x6b3a2a});
+  const matWood     = new THREE.MeshLambertMaterial({color:0x5e4a32});
+  const matFence    = new THREE.MeshLambertMaterial({color:0x555555, transparent:true, opacity:0.6});
+  const matDark     = new THREE.MeshLambertMaterial({color:0x2a2a2a});
+  const matMed      = new THREE.MeshLambertMaterial({color:0x336633});
+
+  // ── Concrete courtyard pads ──
+  const padGeo = new THREE.BoxGeometry(26,0.15,18);
+  const pad1 = new THREE.Mesh(padGeo, matConcrete); pad1.position.set(0,0.08,-6); pad1.receiveShadow=true; addObj(pad1);
+  const pad2 = new THREE.Mesh(padGeo, matConcrete); pad2.position.set(0,0.08,16); pad2.receiveShadow=true; addObj(pad2);
+  // Dirt path connecting pads
+  const pathM = new THREE.Mesh(new THREE.BoxGeometry(7,0.05,10), new THREE.MeshLambertMaterial({color:0x6b5e4a}));
+  pathM.position.set(0,0.03,5); pathM.receiveShadow=true; addObj(pathM);
+
+  // ═══════════════════════════════════════════
+  // PERIMETER FENCE — chain-link with posts
+  // ═══════════════════════════════════════════
+  const half = 46; // just inside arena boundary
+  const fH = 3.5;
+  const fT = 0.2;
+  const fenceSegs = [
+    {w:92, x:0, z:-half, rot:0},                     // North (full)
+    {w:22, x:-20, z:half, rot:0},                     // South-left
+    {w:22, x:20, z:half, rot:0},                      // South-right (gap in centre)
+    {w:92, x:-half, z:0, rot:Math.PI/2},              // West (full)
+    {w:22, x:half, z:-16, rot:Math.PI/2},             // East-top
+    {w:22, x:half, z:20, rot:Math.PI/2},              // East-bottom (gap)
+  ];
+  for(const seg of fenceSegs){
+    const fm = new THREE.Mesh(new THREE.BoxGeometry(seg.w, fH, fT), matFence);
+    fm.position.set(seg.x, fH/2, seg.z);
+    if(seg.rot) fm.rotation.y = seg.rot;
+    fm.castShadow=true; addObj(fm);
+  }
+  // Fence posts
+  const postGeo = new THREE.CylinderGeometry(0.12, 0.12, fH+0.5, 6);
+  for(let x=-half; x<=half; x+=6){
+    const pn = new THREE.Mesh(postGeo, matMetal); pn.position.set(x,(fH+0.5)/2,-half); pn.castShadow=true; addObj(pn);
+    if(Math.abs(x)>8){ const ps = new THREE.Mesh(postGeo, matMetal); ps.position.set(x,(fH+0.5)/2,half); ps.castShadow=true; addObj(ps); }
+  }
+  for(let z=-half; z<=half; z+=6){
+    const pw = new THREE.Mesh(postGeo, matMetal); pw.position.set(-half,(fH+0.5)/2,z); pw.castShadow=true; addObj(pw);
+    if(Math.abs(z-2)>12){ const pe = new THREE.Mesh(postGeo, matMetal); pe.position.set(half,(fH+0.5)/2,z); pe.castShadow=true; addObj(pe); }
+  }
+
+  // ═══════════════════════════════════════════
+  // WATCHTOWERS — 4 corners + 2 mid-side
+  // ═══════════════════════════════════════════
+  const towerCorners = [
+    {x:-42, z:-38}, {x:42, z:-38}, {x:-42, z:38}, {x:42, z:38}
+  ];
+  towerCorners.forEach((tc,i) => {
+    const g = new THREE.Group(); g.position.set(tc.x, 0, tc.z);
+    const legGeo = new THREE.BoxGeometry(0.4,8,0.4);
+    [[-1.5,-1.5],[1.5,-1.5],[-1.5,1.5],[1.5,1.5]].forEach(([lx,lz])=>{
+      const leg=new THREE.Mesh(legGeo,matWood); leg.position.set(lx,4,lz); leg.castShadow=true; g.add(leg);
+    });
+    const plat=new THREE.Mesh(new THREE.BoxGeometry(4.5,0.3,4.5),matWood); plat.position.set(0,7,0); plat.castShadow=true; g.add(plat);
+    // Railings (partial = damaged)
+    const railG = new THREE.BoxGeometry(4.5,1.2,0.2);
+    const r1=new THREE.Mesh(railG,matWood); r1.position.set(0,7.75,-2.1); g.add(r1);
+    if(i!==2){ const r2=new THREE.Mesh(railG,matWood); r2.position.set(0,7.75,2.1); g.add(r2); }
+    if(i!==1){ const r3=new THREE.Mesh(new THREE.BoxGeometry(0.2,1.2,4.5),matWood); r3.position.set(-2.1,7.75,0); g.add(r3); }
+    // Roof (tilted = damaged)
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(5,0.15,5),matRust);
+    roof.position.set(0,9.2,0); roof.rotation.z=(i%2===0)?0.08:-0.05; g.add(roof);
+    addObj(g);
+  });
+  // Mid-side towers
+  [{x:-44,z:0},{x:44,z:0}].forEach(mp=>{
+    const g=new THREE.Group(); g.position.set(mp.x,0,mp.z);
+    const legG=new THREE.BoxGeometry(0.35,7,0.35);
+    [[-1.2,-1.2],[1.2,-1.2],[-1.2,1.2],[1.2,1.2]].forEach(([lx,lz])=>{
+      const leg=new THREE.Mesh(legG,matWood); leg.position.set(lx,3.5,lz); leg.castShadow=true; g.add(leg);
+    });
+    const plat=new THREE.Mesh(new THREE.BoxGeometry(3.5,0.25,3.5),matWood); plat.position.set(0,6,0); g.add(plat);
+    addObj(g);
+  });
+
+  // ═══════════════════════════════════════════
+  // COMMAND BUILDING details (north centre)
+  // ═══════════════════════════════════════════
+  // Roof slab (overhanging)
+  const roofSlab=new THREE.Mesh(new THREE.BoxGeometry(20,0.4,14),matDark);
+  roofSlab.position.set(0,5.2,-30); addObj(roofSlab);
+  // Entrance overhang
+  const overhang=new THREE.Mesh(new THREE.BoxGeometry(8,0.3,4),matMetal);
+  overhang.position.set(0,3.2,-23); addObj(overhang);
+  // Entrance pillars
+  const pillarGeo=new THREE.BoxGeometry(0.6,3.2,0.6);
+  const pl1=new THREE.Mesh(pillarGeo,matConcrete); pl1.position.set(-3.5,1.6,-22.5); pl1.castShadow=true; addObj(pl1);
+  const pl2=new THREE.Mesh(pillarGeo,matConcrete); pl2.position.set(3.5,1.6,-22.5); pl2.castShadow=true; addObj(pl2);
+  // Satellite dish on roof
+  const dish=new THREE.Mesh(new THREE.SphereGeometry(1.2,8,6,0,Math.PI),matMetal);
+  dish.position.set(5,6.5,-32); dish.rotation.x=-0.4; addObj(dish);
+  // East shed roof slab
+  const shedRoof=new THREE.Mesh(new THREE.BoxGeometry(8,0.2,8),matDark);
+  shedRoof.position.set(16,3.6,-30); addObj(shedRoof);
+
+  // ═══════════════════════════════════════════
+  // DESTROYED VEHICLES — detail meshes on top of obstacle boxes
+  // ═══════════════════════════════════════════
+  // Trucks (near command building)
+  [{x:-14,z:-22,rot:0.3},{x:-18,z:-14,rot:-0.2}].forEach(v=>{
+    const g=new THREE.Group(); g.position.set(v.x,0,v.z); g.rotation.y=v.rot;
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(3,2.5,3),matRust); cab.position.set(0,1.25,-1.5); cab.castShadow=true; g.add(cab);
+    const bed=new THREE.Mesh(new THREE.BoxGeometry(3,1.5,4),matMetal); bed.position.set(0,0.75,1.5); bed.castShadow=true; g.add(bed);
+    const wGeo=new THREE.CylinderGeometry(0.45,0.45,0.4,8);
+    [[-1.4,-1.5],[1.4,-1.5],[-1.4,2],[1.4,2]].forEach(([wx,wz])=>{
+      const w=new THREE.Mesh(wGeo,matDark); w.rotation.z=Math.PI/2; w.position.set(wx,0.45,wz); g.add(w);
+    });
+    addObj(g);
+  });
+  // Tanks
+  [{x:24,z:-4,rot:0.8},{x:-24,z:4,rot:-0.5},{x:20,z:24,rot:-0.8}].forEach(v=>{
+    const g=new THREE.Group(); g.position.set(v.x,0,v.z); g.rotation.y=v.rot;
+    const hull=new THREE.Mesh(new THREE.BoxGeometry(4,1.6,6),matRust); hull.position.y=0.8; hull.castShadow=true; g.add(hull);
+    const turret=new THREE.Mesh(new THREE.BoxGeometry(2.5,1,3),matMetal); turret.position.set(0,2.1,-0.5); turret.castShadow=true; g.add(turret);
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,4,6),matDark); barrel.rotation.x=Math.PI/2; barrel.position.set(0,2.3,-3); g.add(barrel);
+    const trkGeo=new THREE.BoxGeometry(0.6,1.2,6.4);
+    const tL=new THREE.Mesh(trkGeo,matDark); tL.position.set(-2.1,0.6,0); g.add(tL);
+    const tR=new THREE.Mesh(trkGeo,matDark); tR.position.set(2.1,0.6,0); g.add(tR);
+    addObj(g);
+  });
+  // Jeeps
+  [{x:-16,z:28,rot:1.2},{x:6,z:36,rot:0.1}].forEach(v=>{
+    const g=new THREE.Group(); g.position.set(v.x,0,v.z); g.rotation.y=v.rot;
+    const body=new THREE.Mesh(new THREE.BoxGeometry(2.5,1.4,4),matRust); body.position.y=0.7; body.castShadow=true; g.add(body);
+    const jRoof=new THREE.Mesh(new THREE.BoxGeometry(2.3,0.1,2.5),matDark); jRoof.position.set(0,1.8,-0.5); g.add(jRoof);
+    addObj(g);
+  });
+
+  // ═══════════════════════════════════════════
+  // SANDBAG CHECKPOINTS — detail on top of obstacle barricades
+  // ═══════════════════════════════════════════
+  [{x:-12,z:2},{x:12,z:2},{x:0,z:24}].forEach(cp=>{
+    const g=new THREE.Group(); g.position.set(cp.x,0,cp.z);
+    // Sandbag rows (3 wide, 2 high)
+    for(let i=-2;i<=2;i++){
+      const bag=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.5,1),matSandbag);
+      bag.position.set(i*1.6,0.25,0); bag.castShadow=true; g.add(bag);
+      if(Math.abs(i)<=1){
+        const bag2=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.5,1),matSandbag);
+        bag2.position.set(i*1.6+0.4,0.75,0); bag2.castShadow=true; g.add(bag2);
+      }
+    }
+    // Ammo crate
+    const crate=new THREE.Mesh(new THREE.BoxGeometry(1,0.7,0.7),matWood);
+    crate.position.set(-2,0.35,1.2); crate.castShadow=true; g.add(crate);
+    // Medical supply box
+    const med=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.5,0.6),matMed);
+    med.position.set(2,0.25,1); g.add(med);
+    addObj(g);
+  });
+
+  // ═══════════════════════════════════════════
+  // INNER WALL DETAILS — concrete damage, rubble
+  // ═══════════════════════════════════════════
+  // Rubble debris near wall gaps
+  const rubbleGeo = new THREE.BoxGeometry(0.6,0.3,0.5);
+  [{x:0,z:-14},{x:-16,z:-2},{x:16,z:-2},{x:0,z:12},{x:-14,z:20},{x:14,z:20}].forEach(rp=>{
+    for(let r=0;r<3;r++){
+      const rub=new THREE.Mesh(rubbleGeo,matConcrete);
+      rub.position.set(rp.x+(Math.random()-0.5)*2, 0.15, rp.z+(Math.random()-0.5)*1.5);
+      rub.rotation.y=Math.random()*Math.PI; addObj(rub);
+    }
+  });
+
+  // ═══════════════════════════════════════════
+  // SCATTERED PROPS — crates, barrels, debris
+  // ═══════════════════════════════════════════
+  const crateGeo = new THREE.BoxGeometry(1.2,1.2,1.2);
+  const barrelGeo = new THREE.CylinderGeometry(0.5,0.5,1.2,8);
+  const propData = [
+    {t:'crate',x:-6,z:-24,rot:0.2}, {t:'crate',x:8,z:-24,rot:-0.3},
+    {t:'barrel',x:-14,z:6}, {t:'barrel',x:14,z:5},
+    {t:'crate',x:-32,z:-16,rot:0.5}, {t:'barrel',x:34,z:12},
+    {t:'crate',x:-28,z:24,rot:0.7}, {t:'barrel',x:30,z:-28},
+    {t:'crate',x:0,z:-20,rot:0.4}, {t:'barrel',x:-10,z:30},
+    {t:'barrel',x:10,z:-36}, {t:'crate',x:-38,z:-30,rot:1.1},
+  ];
+  for(const p of propData){
+    let m;
+    if(p.t==='crate'){ m=new THREE.Mesh(crateGeo,matWood); m.position.set(p.x,0.6,p.z); if(p.rot) m.rotation.y=p.rot; }
+    else { m=new THREE.Mesh(barrelGeo,matRust); m.position.set(p.x,0.6,p.z); }
+    m.castShadow=true; addObj(m);
+  }
+
+  // ═══════════════════════════════════════════
+  // ATMOSPHERIC DETAILS — searchlights, fire barrels, scorch marks
+  // ═══════════════════════════════════════════
+  // Watchtower searchlights (dim spotlights pointing down from towers)
+  [{x:-42,z:-38},{x:42,z:-38},{x:-42,z:38},{x:42,z:38}].forEach(tp=>{
+    const sl=new THREE.SpotLight(0xffeeaa,0.6,30,Math.PI/6,0.5);
+    sl.position.set(tp.x,9,tp.z);
+    sl.target.position.set(tp.x+(Math.random()-0.5)*10, 0, tp.z+(Math.random()-0.5)*10);
+    addObj(sl); addObj(sl.target);
+  });
+
+  // Fire barrels (glowing orange point lights)
+  [{x:-8,z:0},{x:8,z:0},{x:0,z:28},{x:-30,z:-10},{x:28,z:10}].forEach(fp=>{
+    const barrelM=new THREE.Mesh(barrelGeo, new THREE.MeshLambertMaterial({color:0x3a2a1a}));
+    barrelM.position.set(fp.x,0.6,fp.z); barrelM.castShadow=true; addObj(barrelM);
+    const fireGlow=new THREE.PointLight(0xff6622,0.8,8);
+    fireGlow.position.set(fp.x,1.4,fp.z); addObj(fireGlow);
+  });
+
+  // Scorch marks on ground (from explosions/battles)
+  for(let s=0;s<8;s++){
+    const sx=(Math.random()-0.5)*80, sz=(Math.random()-0.5)*80;
+    const scorch=new THREE.Mesh(
+      new THREE.PlaneGeometry(2+Math.random()*3, 2+Math.random()*3),
+      new THREE.MeshLambertMaterial({color:0x0a0804, transparent:true, opacity:0.5})
+    );
+    scorch.rotation.x=-Math.PI/2;
+    scorch.position.set(sx,0.02,sz);
+    scorch.rotation.z=Math.random()*Math.PI;
+    addObj(scorch);
+  }
+
+  // Razor wire on top of some inner walls (thin lines)
+  [{x:-8,z:-14,w:14},{x:8,z:-14,w:14},{x:-7,z:12,w:12},{x:7,z:12,w:12}].forEach(rw=>{
+    const wire=new THREE.Mesh(
+      new THREE.BoxGeometry(rw.w,0.3,0.3),
+      new THREE.MeshLambertMaterial({color:0x666666})
+    );
+    wire.position.set(rw.x,2.0,rw.z); addObj(wire);
+  });
+}
+
 // Build default map on load
 buildMap('farm');
 
@@ -1813,7 +2143,7 @@ const GUNS={
   knife:       {name:'KNIFE',      dmg:150, rof:0.55,mag:999,res:999, reload:0,  cost:0,    color:0xdddddd,auto:false,spread:0,    bulletSpd:0, pellets:1,melee:true},
   pistol:      {name:'PISTOL',     dmg:35,  rof:0.35,mag:12, res:60,  reload:1.4,cost:0,    color:0x888888,auto:false,spread:0,    bulletSpd:38,pellets:1},
   smg:         {name:'SMG',        dmg:22,  rof:0.08,mag:30, res:150, reload:1.6,cost:1500, color:0x445566,auto:true, spread:0.03, bulletSpd:40,pellets:1},
-  shotgun:     {name:'SHOTGUN',    dmg:55,  rof:0.7, mag:6,  res:36,  reload:2.0,cost:2000, color:0x664422,auto:false,spread:0.12, bulletSpd:32,pellets:6},
+  shotgun:     {name:'SHOTGUN',    dmg:75,  rof:0.7, mag:8,  res:48,  reload:2.0,cost:2000, color:0x664422,auto:false,spread:0.12, bulletSpd:32,pellets:6},
   ak47:        {name:'AK-47',      dmg:50,  rof:0.12,mag:30, res:120, reload:2.0,cost:2500, color:0x5a3a1a,auto:true, spread:0.04, bulletSpd:44,pellets:1},
   sniper:      {name:'SNIPER',     dmg:250, rof:1.2, mag:5,  res:25,  reload:2.5,cost:3000, color:0x334455,auto:false,spread:0,    bulletSpd:80,pellets:1},
   lmg:         {name:'LMG',        dmg:38,  rof:0.09,mag:75, res:225, reload:3.5,cost:3500, color:0x556644,auto:true, spread:0.05, bulletSpd:40,pellets:1},
@@ -1821,6 +2151,8 @@ const GUNS={
   plasma:      {name:'PLASMA',     dmg:80,  rof:0.18,mag:20, res:80,  reload:1.8,cost:4000, color:0x0088ff,auto:true, spread:0.02, bulletSpd:35,pellets:1},
   minigun:     {name:'MINIGUN',    dmg:28,  rof:0.05,mag:150,res:300, reload:4.0,cost:6000, color:0x777744,auto:true, spread:0.07, bulletSpd:42,pellets:1},
   flamethrower:{name:'FLAMER',     dmg:18,  rof:0.06,mag:100,res:200, reload:2.2,cost:4500, color:0xff4400,auto:true, spread:0.15, bulletSpd:15,pellets:1,fire:true},
+  burst:       {name:'BURST RIFLE',dmg:45, rof:0.38,mag:24, res:120, reload:1.8,cost:2800, color:0x3366aa,auto:false,spread:0.015,bulletSpd:50,pellets:1,burst:3,burstDelay:0.06},
+  autoshotgun: {name:'AUTO SHOTGUN',dmg:40,rof:0.28,mag:16, res:80,  reload:2.4,cost:3000, color:0x885533,auto:false,spread:0.10, bulletSpd:30,pellets:8},
 };
 
 // Wall buys removed — all weapons come from the Mystery Box only
@@ -1836,7 +2168,7 @@ const PAP_UPGRADES = {
   knife:       {name:"KATANA",        dmg:300, mag:999,res:999, color:0xff00cc, rof:0.45, melee:true},
   pistol:      {name:"MUSTANG",       dmg:200, mag:20, res:120, color:0xcc44ff, rof:0.25, explosive:true},
   smg:         {name:"THE AFTERBURNER",dmg:55, mag:45, res:270, color:0xaa22ff, rof:0.06},
-  shotgun:     {name:"THE BEAR JAW",  dmg:130, mag:8,  res:64,  color:0x9900ff, rof:0.6, pellets:8},
+  shotgun:     {name:"THE BEAR JAW",  dmg:150, mag:14, res:84,  color:0x9900ff, rof:0.6, pellets:8},
   ak47:        {name:"AK-47U REBORN", dmg:110, mag:40, res:200, color:0xbb33ff, rof:0.10},
   sniper:      {name:"LONGSHOT 3000", dmg:600, mag:8,  res:50,  color:0xdd55ff, rof:1.0},
   lmg:         {name:"THE OBLITERATOR",dmg:85, mag:100,res:400, color:0xaa00ee, rof:0.07},
@@ -1844,6 +2176,8 @@ const PAP_UPGRADES = {
   plasma:      {name:"PLASMA STORM",  dmg:180, mag:30, res:150, color:0x8800ff, rof:0.14},
   minigun:     {name:"DEATH MACHINE", dmg:60,  mag:250,res:500, color:0xdd00ff, rof:0.04},
   flamethrower:{name:"DRAGON'S BREATH",dmg:42, mag:150,res:350, color:0xff00aa, rof:0.05},
+  burst:       {name:"HELLFIRE SALVO", dmg:95, mag:36, res:216, color:0x6644ff, rof:0.30, burst:3, burstDelay:0.045},
+  autoshotgun: {name:"STREET SWEEPER", dmg:80, mag:24, res:144, color:0xcc44ff, rof:0.22, pellets:10},
 };
 
 let papBusy = false; // true while upgrading animation plays
@@ -1941,9 +2275,11 @@ function packAPunch(){
     slot.ammo    = upg.mag;       // Full mag
     slot.reserve = upg.res;       // Full reserve
     slot.packed  = true;
-    if(upg.rof)       slot.rof       = upg.rof;
-    if(upg.pellets)   slot.pellets   = upg.pellets;
-    if(upg.explosive) slot.explosive = upg.explosive;
+    if(upg.rof)        slot.rof        = upg.rof;
+    if(upg.pellets)    slot.pellets    = upg.pellets;
+    if(upg.explosive)  slot.explosive  = upg.explosive;
+    if(upg.burst)      slot.burst      = upg.burst;
+    if(upg.burstDelay) slot.burstDelay = upg.burstDelay;
 
     updateGunVisual();
     updateHUD();
@@ -2358,6 +2694,63 @@ function buildWeaponModel(key, color, isPacked){
       // Grip
       bx(.06,.1,.06,dark,0,-.07,.08);
       break;
+    case 'burst':
+      // Burst Rifle — sleek tactical rifle with 3-round burst selector
+      // Main receiver body
+      bx(.08,.09,.38,color,0,.02,-.08);
+      // Long precision barrel
+      cyl(.025,.32,darkMetal,0,.04,-.42,Math.PI/2);
+      // Muzzle brake (3 slots)
+      cyl(.03,.06,metal,0,.04,-.58,Math.PI/2);
+      bx(.035,.005,.02,metal,0,.055,-.56);
+      bx(.035,.005,.02,metal,0,.055,-.59);
+      // Top rail (optic rail)
+      bx(.04,.02,.28,dark,0,.08,-.1);
+      // Scope/red dot sight
+      bx(.03,.035,.08,0x222233,0,.11,-.06);
+      bx(.018,.018,.005,0xff0000,0,.11,-.02,0xff0000); // red dot lens
+      // Burst selector (3 dots)
+      bx(.005,.005,.005,0xff4444,.042,.0,-.02);
+      bx(.005,.005,.005,0xff4444,.042,.0,-.01);
+      bx(.005,.005,.005,0xff4444,.042,.0,0);
+      // Foregrip
+      bx(.04,.06,.04,dark,0,-.04,-.22);
+      // Magazine (curved)
+      bx(.035,.12,.06,dark,.005,-.1,.02);
+      // Stock (adjustable tactical)
+      bx(.06,.07,.18,dark,0,.0,.2);
+      bx(.06,.08,.04,color,0,-.01,.3);
+      // Grip
+      bx(.05,.09,.05,dark,0,-.07,.08);
+      break;
+    case 'autoshotgun':
+      // Semi-Auto Shotgun — bulky tactical shotgun with box mag
+      // Wide receiver
+      bx(.1,.1,.32,color,0,.02,-.06);
+      // Thick barrel
+      cyl(.035,.3,darkMetal,0,.04,-.36,Math.PI/2);
+      // Barrel shroud / heat shield
+      bx(.08,.005,.2,metal,0,.065,-.28);
+      bx(.005,.04,.2,metal,.038,.04,-.28);
+      bx(.005,.04,.2,metal,-.038,.04,-.28);
+      // Wide muzzle
+      cyl(.04,.04,dark,0,.04,-.52,Math.PI/2);
+      // Box magazine (visible, chunky)
+      bx(.05,.14,.07,dark,0,-.1,-.02);
+      // Pump grip area (decorative, since semi-auto)
+      bx(.06,.05,.1,0x553322,0,-.02,-.2);
+      // Top rail
+      bx(.04,.015,.14,dark,0,.08,-.06);
+      // Rear sight
+      bx(.02,.025,.01,metal,0,.1,.02);
+      // Front sight
+      bx(.015,.02,.01,metal,0,.065,-.46);
+      // Stock (solid)
+      bx(.07,.08,.2,color,0,.0,.16);
+      bx(.065,.09,.04,0x553322,0,-.01,.28);
+      // Grip
+      bx(.06,.1,.06,dark,0,-.07,.06);
+      break;
     default:
       // Generic fallback
       bx(.1,.1,.45,color,0,.02,-.1);
@@ -2365,7 +2758,7 @@ function buildWeaponModel(key, color, isPacked){
       bx(.06,.1,.06,color,0,-.07,.06);
   }
   // Adjust muzzle flash position per weapon
-  const muzzleZ = (key==='sniper')?-.85:(key==='rpg')?-.65:(key==='shotgun'||key==='ak47')?-.65:(key==='lmg')?-.55:(key==='minigun')?-.5:-.55;
+  const muzzleZ = (key==='sniper')?-.85:(key==='rpg')?-.65:(key==='shotgun'||key==='ak47'||key==='autoshotgun')?-.65:(key==='burst')?-.62:(key==='lmg')?-.55:(key==='minigun')?-.5:-.55;
   muzzleFL.position.set(0,.03,muzzleZ);
 }
 
@@ -2381,12 +2774,12 @@ function currentGun(){
 }
 
 function equipKnife(){
-  knifeActive=true;
+  knifeActive=true; burstQueue=0;
   updateGunVisual(); updateHUD();
 }
 
 function equipGun(){
-  knifeActive=false;
+  knifeActive=false; burstQueue=0;
   updateGunVisual(); updateHUD();
 }
 
@@ -2513,7 +2906,7 @@ function updateGunVisual(){
 function isHeadshot(hitWorldPos, zombie){
   const feetY = zombie.mesh.position.y;
   const hitRelY = hitWorldPos.y - feetY;
-  const scale = zombie.elite ? 1.3 : 1.0;
+  const scale = zombie.boss ? BOSS_SCALE : (zombie.elite ? 1.3 : 1.0);
   return hitRelY > (HEADSHOT_Y_NORMAL * scale);
 }
 // Flash the "HEADSHOT" marker on screen briefly
@@ -2538,11 +2931,28 @@ function headshotBurst(p){
 // ══════════════════════════════════════════════════
 // SHOOTING
 // ══════════════════════════════════════════════════
-function spawnBullet(){
+function spawnBullet(burstCont){
   const g=currentGun();
-  if(reloading||shootCD>0) return;
-  if(g.ammo<=0) return;
-  g.ammo--; shootCD=g.rof * getFireRateMult(); updateHUD(); // DOUBLE TAP EFFECT
+  if(burstCont){
+    // Burst continuation — skip cooldown check, just fire
+    if(g.ammo<=0){ burstQueue=0; return; }
+    g.ammo--;
+    burstCD = (g.burstDelay||0.06) * getFireRateMult();
+    updateHUD();
+  } else {
+    if(reloading||shootCD>0) return;
+    if(g.ammo<=0) return;
+    g.ammo--;
+    // Burst weapon: set cooldown to full rof, queue remaining burst rounds
+    if(g.burst && g.burst>1){
+      shootCD=g.rof * getFireRateMult();
+      burstQueue=g.burst-1;
+      burstCD=(g.burstDelay||0.06) * getFireRateMult();
+    } else {
+      shootCD=g.rof * getFireRateMult();
+    }
+    updateHUD(); // DOUBLE TAP EFFECT
+  }
 
   // Play weapon sound
   const sfxKey = g.key || (knifeActive ? 'knife' : 'fists');
@@ -2689,7 +3099,7 @@ function spawnBullet(){
 function startReload(){
   const g=currentGun();
   if(knifeActive||g.melee||reloading||g.ammo>=g.mag||g.reserve<=0) return;
-  reloading=true; reloadT=0;
+  reloading=true; reloadT=0; burstQueue=0;
   playReloadSfx();
   document.getElementById('rlWrap').classList.add('on');
 }
@@ -2932,20 +3342,175 @@ function spawnZombie(w, forceElite){
   }
 }
 
+// ══════════════════════════════════════════════════
+// BOSS ZOMBIE SYSTEM
+// ══════════════════════════════════════════════════
+function spawnBossZombie(w){
+  const scale = BOSS_SCALE;
+  const g = new THREE.Group();
+
+  // ── BOSS MODEL: massive, dark red/black armored brute ──
+  const skin  = 0x5a1a1a; // dark bloody red
+  const armor = 0x1a0808; // near-black crimson
+  const bone  = 0x888866; // exposed bone color
+
+  // Torso (massive)
+  const zb = mkBox(.85*scale, 1.1*scale, .5*scale, armor);
+  zb.position.y = .95*scale; g.add(zb);
+
+  // Shoulder armor plates
+  for(const s of[-1,1]){
+    const plate = mkBox(.35*scale, .3*scale, .45*scale, 0x2a0a0a);
+    plate.position.set(s*.65*scale, 1.55*scale, 0); g.add(plate);
+  }
+
+  // Head (slightly smaller proportionally — brutish)
+  const zh = mkBox(.5*scale, .5*scale, .5*scale, skin);
+  zh.position.y = 1.85*scale; g.add(zh);
+
+  // Jaw / lower face detail
+  const jaw = mkBox(.4*scale, .15*scale, .3*scale, bone);
+  jaw.position.set(0, 1.62*scale, -.18*scale); g.add(jaw);
+
+  // Legs: thick and heavy
+  const zllPiv = new THREE.Group(); zllPiv.position.set(-.25*scale, .7*scale, 0); g.add(zllPiv);
+  const zll = mkBox(.3*scale, .8*scale, .3*scale, armor); zll.position.set(0,-.4*scale,0); zllPiv.add(zll);
+  const zlrPiv = new THREE.Group(); zlrPiv.position.set(.25*scale, .7*scale, 0); g.add(zlrPiv);
+  const zlr = mkBox(.3*scale, .8*scale, .3*scale, armor); zlr.position.set(0,-.4*scale,0); zlrPiv.add(zlr);
+  g.userData.legL = zllPiv;
+  g.userData.legR = zlrPiv;
+
+  // Arms: long and heavy, reaching forward
+  for(const s of[-1,1]){
+    const arm = mkBox(.26*scale, .75*scale, .26*scale, skin);
+    arm.position.set(s*.7*scale, 1.15*scale, -.3*scale);
+    arm.rotation.x = -.7;
+    g.add(arm);
+  }
+
+  // Glowing red eyes — large and menacing
+  for(const ex of[-.14, .14]){
+    const eye = new THREE.Mesh(
+      new THREE.BoxGeometry(.12*scale, .1*scale, .06*scale),
+      new THREE.MeshBasicMaterial({color:0xff0000})
+    );
+    eye.position.set(ex*scale, 1.9*scale, -.26*scale); g.add(eye);
+  }
+
+  // Intense red glow aura
+  const bossGlow = new THREE.PointLight(0xff2200, 1.2, 10);
+  bossGlow.position.set(0, 1.5*scale, 0); g.add(bossGlow);
+
+  // Secondary ground glow (ominous red circle beneath)
+  const groundGlow = new THREE.PointLight(0xff0000, 0.6, 6);
+  groundGlow.position.set(0, 0.2, 0); g.add(groundGlow);
+
+  // Spawn position
+  const mapCfg = MAPS[selectedMapId] || MAPS.farm;
+  const a = Math.random()*Math.PI*2;
+  const r = mapCfg.zombieSpawnRadius + Math.random()*(mapCfg.zombieSpawnSpread||4);
+  g.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
+  scene.add(g);
+
+  // Boss stats: massively scaled
+  const baseHp = 30 + w*18;
+  const hp     = Math.floor(baseHp * BOSS_HP_MULT);
+  const speed  = (1.6 + w*0.18) * BOSS_SPEED_MULT + Math.random()*0.3;
+  const atkCD  = BOSS_ATK_CD;
+  const meleeDmg = BOSS_MELEE_DMG;
+
+  const bossObj = {
+    mesh:g, hp, maxHp:hp, speed, atkT:0, atkCD, alive:true,
+    legPhase: Math.random()*Math.PI*2,
+    elite: false, boss: true, meleeDmg
+  };
+  zombies.push(bossObj);
+  activeBoss = bossObj;
+  bossRoundActive = true;
+
+  // Pick a random boss name
+  const bossName = BOSS_NAMES[Math.floor(Math.random()*BOSS_NAMES.length)];
+  activeBoss._bossName = bossName;
+
+  // Show boss health bar UI
+  const bossBarEl = document.getElementById('bossBar');
+  document.getElementById('bossName').textContent = bossName;
+  document.getElementById('bossHpFill').style.width = '100%';
+  document.getElementById('bossHpTxt').textContent = hp + ' / ' + hp;
+  bossBarEl.classList.add('on');
+
+  // Boss growl (deeper, louder than elite)
+  playBossGrowl();
+  addFeed('☠ ' + bossName + ' HAS ARRIVED!');
+  showBanner('BOSS');
+}
+
+function playBossGrowl(){
+  const t = sfxCtx.currentTime;
+  const master = sfxCtx.createGain(); master.connect(sfxGainNode);
+  master.gain.setValueAtTime(0.6, t);
+  master.gain.linearRampToValueAtTime(0.8, t+0.4);
+  master.gain.exponentialRampToValueAtTime(0.001, t+1.5);
+  // Deep rumbling growl
+  const osc = sfxCtx.createOscillator(); osc.type='sawtooth';
+  osc.frequency.setValueAtTime(35, t);
+  osc.frequency.linearRampToValueAtTime(25, t+0.8);
+  osc.frequency.linearRampToValueAtTime(50, t+1.5);
+  osc.connect(master); osc.start(t); osc.stop(t+1.5);
+  // Sub-bass layer
+  const osc2 = sfxCtx.createOscillator(); osc2.type='sine';
+  osc2.frequency.setValueAtTime(28, t);
+  osc2.frequency.linearRampToValueAtTime(18, t+1.2);
+  const g2 = sfxCtx.createGain(); g2.connect(sfxGainNode);
+  g2.gain.setValueAtTime(0.4, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t+1.4);
+  osc2.connect(g2); osc2.start(t); osc2.stop(t+1.4);
+}
+
+function updateBossHealthBar(){
+  const barEl = document.getElementById('bossBar');
+  if(!activeBoss || !activeBoss.alive){
+    barEl.classList.remove('on');
+    return;
+  }
+  barEl.classList.add('on');
+  const pct = Math.max(0, activeBoss.hp / activeBoss.maxHp * 100);
+  document.getElementById('bossHpFill').style.width = pct + '%';
+  document.getElementById('bossHpTxt').textContent = Math.max(0,activeBoss.hp) + ' / ' + activeBoss.maxHp;
+  if(activeBoss._bossName) document.getElementById('bossName').textContent = activeBoss._bossName;
+}
+
 function damageZombie(z,dmg){
-  // Insta-kill overrides damage
-  const actualDmg = pwrState.instaKill>0 ? 99999 : dmg;
+  // Insta-kill overrides damage (bosses resist insta-kill — take 20% maxHp instead)
+  let actualDmg = dmg;
+  if(pwrState.instaKill>0){
+    actualDmg = z.boss ? Math.floor(z.maxHp * 0.2) : 99999;
+  }
   z.hp -= actualDmg;
+
+  // Update boss health bar in real time
+  if(z.boss) updateBossHealthBar();
+
   if(z.hp<=0){
     z.alive=false;
     const deathPos = z.mesh.position.clone();
     scene.remove(z.mesh); kills++; zombsLeft--;
-    // Elites give 3x points and credits
-    const mult = z.elite ? 3 : 1;
+
+    // Boss / Elite / Normal multiplier for points
+    const mult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
     const pts=(100+wave*50)*mult; score+=pts;
     const earn=Math.floor((60+Math.random()*40)*mult); credits+=earn;
-    const prefix = z.elite ? '💀 ELITE KILLED  ' : '';
+    const prefix = z.boss ? '☠ BOSS KILLED  ' : (z.elite ? '💀 ELITE KILLED  ' : '');
     addFeed(prefix+'+'+pts+' pts  +'+earn+' credits');
+
+    // Boss death: hide health bar, show kill banner
+    if(z.boss){
+      activeBoss = null;
+      bossRoundActive = false;
+      document.getElementById('bossBar').classList.remove('on');
+      addFeed('☠ BOSS DESTROYED! +' + earn + ' credits');
+    }
+
     updateHUD();
     // Kaboom: explode on death
     if(pwrState.kaboom>0){
@@ -3314,7 +3879,7 @@ function giveGun(key){
   return true;
 }
 
-const MB_POOL=['smg','shotgun','ak47','sniper','lmg','rpg','plasma','minigun','flamethrower'];
+const MB_POOL=['smg','shotgun','ak47','sniper','lmg','rpg','plasma','minigun','flamethrower','burst','autoshotgun'];
 function openMysteryBox(){
   if(credits<950){ addFeed('Need 950 credits!'); return; }
   credits-=950;
@@ -3342,12 +3907,19 @@ function openMysteryBox(){
 // ══════════════════════════════════════════════════
 function startWave(w){
   wave=w; waveActive=true;
-  const count=4+w*3; zombsLeft=count;
+  const count=4+w*3;
+  // Boss round: add 1 extra for the boss zombie
+  const isBossRound = (w % BOSS_SPAWN_INTERVAL === 0) && w > 0;
+  zombsLeft = count + (isBossRound ? 1 : 0);
   for(let i=0;i<count;i++) setTimeout(()=>{ if(alive || deadThisRound) spawnZombie(w); },i*650);
+  // Spawn boss after a short delay (gives normal zombies a head start)
+  if(isBossRound){
+    setTimeout(()=>{ if(alive || deadThisRound) spawnBossZombie(w); }, count*650 + 1500);
+  }
   showBanner(w); updateHUD();
   // Broadcast wave start to clients
   if(mpMode !== 'solo' && isHost){
-    socket.emit('wave_event', { type:'wave_start', wave:w, count });
+    socket.emit('wave_event', { type:'wave_start', wave:w, count: count + (isBossRound ? 1 : 0), boss: isBossRound });
   }
 }
 
@@ -3492,7 +4064,13 @@ function tick(dt,ts){
 
   // Shoot
   shootCD=Math.max(0,shootCD-dt);
-  if(shooting && !reloading) spawnBullet();
+  burstCD=Math.max(0,burstCD-dt);
+  // Burst-fire: continue firing queued rounds
+  if(burstQueue>0 && burstCD<=0 && !reloading && g.ammo>0){
+    burstQueue--;
+    spawnBullet(true); // true = burst continuation (skip burst init)
+  }
+  if(shooting && !reloading) spawnBullet(false);
   if(!g.melee && g.ammo===0 && !reloading && g.reserve>0) startReload();
 
   // Reload
@@ -3784,7 +4362,7 @@ function tick(dt,ts){
       // visual model (including the taller head) is inside the sphere.
       // Normal zombie: center Y+1.0, radius 0.95  → covers Y 0.05–1.95
       // Elite  zombie: center Y+1.3, radius 1.24  → covers Y 0.06–2.54
-      const zScale = z.elite ? 1.3 : 1.0;
+      const zScale = z.boss ? BOSS_SCALE : (z.elite ? 1.3 : 1.0);
       const hp=z.mesh.position.clone().add(new THREE.Vector3(0, 1.0 * zScale, 0));
       if(hitCheckPos.distanceTo(hp)<(b.explosive ? 2.5 : 0.95 * zScale)){
         const hitPos = hitCheckPos.clone();
@@ -3881,7 +4459,7 @@ function tick(dt,ts){
       if(downed){ continue; }
       const toP=pos.clone().sub(z.mesh.position); toP.y=0;
       const dist=toP.length();
-      const cMeleeRange = z.elite ? 1.6 : 1.3;
+      const cMeleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
       if(dist<cMeleeRange){
         z.atkT-=dt;
         if(z.atkT<=0){
@@ -3999,7 +4577,7 @@ function tick(dt,ts){
     }
 
     // Melee damage — zombie hits whichever player is closest
-    const meleeRange = z.elite ? 1.6 : 1.3;
+    const meleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
     if(dist<meleeRange){
       z.atkT-=dt;
       if(z.atkT<=0){
@@ -4026,10 +4604,15 @@ function tick(dt,ts){
     }
   }
 
+  // Boss health bar tick
+  updateBossHealthBar();
+
   // Wave logic
   const aliveZ=zombies.filter(z=>z.alive).length;
   if(waveActive && aliveZ===0 && zombsLeft<=0){
     waveActive=false; waveDelay=4; score+=500+wave*200; updateHUD();
+    // Clean up boss state on wave end
+    if(activeBoss){ activeBoss=null; bossRoundActive=false; document.getElementById('bossBar').classList.remove('on'); }
     // Broadcast wave end to clients
     if(mpMode !== 'solo' && isHost){
       socket.emit('wave_event', { type:'wave_end', wave });
@@ -4180,7 +4763,7 @@ function tickHostZombiesWhileDead(dt, ts){
     }
 
     // Melee damage — zombie hits closest alive remote player
-    const meleeRange = z.elite ? 1.6 : 1.3;
+    const meleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
     if(dist<meleeRange && closestPos !== pos){
       z.atkT-=dt;
       if(z.atkT<=0){
@@ -4436,7 +5019,8 @@ document.querySelectorAll('.mbtn, .gbtn, .stab').forEach(btn => {
 const MAP_DISPLAY = {
   farm:    { icon: '🌾', name: 'THE FARM',              theme: 'Rural Horror',  desc: 'Abandoned farmland surrounded by crumbling ruins. Open fields with scattered obstacles.', tag: 'CLASSIC' },
   redline: { icon: '🏚️', name: 'REDLINE TRAILER PARK', theme: 'Desert Wasteland', desc: 'Desolate roadside trailer park in a scorched desert. Gas station, diner, junkyard, and more.', tag: '' },
-  blackwater: { icon: '⚓', name: 'BLACKWATER DOCKS', theme: 'Industrial Harbor', desc: 'Fog-choked harbor at night. Shipping containers, cranes, and rotting piers. Nowhere to hide.', tag: 'NEW' }
+  blackwater: { icon: '⚓', name: 'BLACKWATER DOCKS', theme: 'Industrial Harbor', desc: 'Fog-choked harbor at night. Shipping containers, cranes, and rotting piers. Nowhere to hide.', tag: '' },
+  outpost: { icon: '🪖', name: 'OUTPOST OMEGA', theme: 'Military Base', desc: 'Bombed-out military outpost with watchtowers, tanks, sandbag checkpoints, and a fortified command building.', tag: 'NEW' }
 };
 
 function renderMapGrid(){
@@ -4912,6 +5496,38 @@ function playSfx(type){
     const src = sfxCtx.createBufferSource(); src.buffer=buf;
     const bp = sfxCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=500; bp.Q.value=0.5;
     src.connect(bp); bp.connect(master); src.start(t); src.stop(t+0.1);
+  }
+
+  else if(type==='burst'){
+    // Sharp tactical crack — tight snappy rifle sound with slight ring
+    master.gain.setValueAtTime(0.5, t);
+    master.gain.exponentialRampToValueAtTime(0.001, t+0.14);
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*0.14, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.02));
+    const src = sfxCtx.createBufferSource(); src.buffer=buf;
+    const bp = sfxCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2200; bp.Q.value=1.8;
+    src.connect(bp); bp.connect(master); src.start(t); src.stop(t+0.14);
+    // Metallic bolt ping
+    const osc = sfxCtx.createOscillator(); osc.type='sine'; osc.frequency.value=3200;
+    const og = sfxCtx.createGain(); og.gain.setValueAtTime(0.08,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+    osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.06);
+  }
+
+  else if(type==='autoshotgun'){
+    // Punchy semi-auto shotgun — shorter boom than pump, more mechanical
+    master.gain.setValueAtTime(0.6, t);
+    master.gain.exponentialRampToValueAtTime(0.001, t+0.25);
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*0.25, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.04));
+    const src = sfxCtx.createBufferSource(); src.buffer=buf;
+    const lp = sfxCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1000;
+    src.connect(lp); lp.connect(master); src.start(t); src.stop(t+0.25);
+    // Shorter boom than pump shotgun
+    const osc = sfxCtx.createOscillator(); osc.type='sine'; osc.frequency.setValueAtTime(200,t); osc.frequency.exponentialRampToValueAtTime(50,t+0.15);
+    const og = sfxCtx.createGain(); og.gain.setValueAtTime(0.4,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+    osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.18);
   }
 
   else {
@@ -5579,7 +6195,9 @@ function tickMPSend(dt){
         maxHp: z.maxHp,
         speed: z.speed,
         elite: !!z.elite,
-        meleeDmg: z.meleeDmg||10
+        boss: !!z.boss,
+        meleeDmg: z.meleeDmg||10,
+        bossName: z._bossName||''
       });
     }
     socket.emit('zombie_update', { zombies: zData });
@@ -5665,8 +6283,27 @@ function addFeedSafe(txt){ try{ addFeed(txt); }catch(e){} }
 // CLIENT-SIDE: RECEIVE ZOMBIE SYNC FROM HOST
 // ══════════════════════════════════════════════════
 // ── FIX: Create zombie mesh that matches elite/normal status for clients ──
-function createClientZombieMesh(isElite){
+function createClientZombieMesh(isElite, isBoss){
   const g = new THREE.Group();
+  if(isBoss){
+    // ── BOSS: massive dark red brute (matches host spawnBossZombie) ──
+    const scale = BOSS_SCALE;
+    const skin=0x5a1a1a, armor=0x1a0808, bone=0x888866;
+    const zb=mkBox(.85*scale,1.1*scale,.5*scale,armor); zb.position.y=.95*scale; g.add(zb);
+    for(const s of[-1,1]){ const pl=mkBox(.35*scale,.3*scale,.45*scale,0x2a0a0a); pl.position.set(s*.65*scale,1.55*scale,0); g.add(pl); }
+    const zh=mkBox(.5*scale,.5*scale,.5*scale,skin); zh.position.y=1.85*scale; g.add(zh);
+    const jaw=mkBox(.4*scale,.15*scale,.3*scale,bone); jaw.position.set(0,1.62*scale,-.18*scale); g.add(jaw);
+    const zllPiv=new THREE.Group(); zllPiv.position.set(-.25*scale,.7*scale,0); g.add(zllPiv);
+    const zll=mkBox(.3*scale,.8*scale,.3*scale,armor); zll.position.set(0,-.4*scale,0); zllPiv.add(zll);
+    const zlrPiv=new THREE.Group(); zlrPiv.position.set(.25*scale,.7*scale,0); g.add(zlrPiv);
+    const zlr=mkBox(.3*scale,.8*scale,.3*scale,armor); zlr.position.set(0,-.4*scale,0); zlrPiv.add(zlr);
+    g.userData.legL=zllPiv; g.userData.legR=zlrPiv;
+    for(const s of[-1,1]){ const arm=mkBox(.26*scale,.75*scale,.26*scale,skin); arm.position.set(s*.7*scale,1.15*scale,-.3*scale); arm.rotation.x=-.7; g.add(arm); }
+    for(const ex of[-.14,.14]){ const eye=new THREE.Mesh(new THREE.BoxGeometry(.12*scale,.1*scale,.06*scale),new THREE.MeshBasicMaterial({color:0xff0000})); eye.position.set(ex*scale,1.9*scale,-.26*scale); g.add(eye); }
+    const bGlow=new THREE.PointLight(0xff2200,1.2,10); bGlow.position.set(0,1.5*scale,0); g.add(bGlow);
+    const gGlow=new THREE.PointLight(0xff0000,0.6,6); gGlow.position.set(0,0.2,0); g.add(gGlow);
+    return g;
+  }
   const scale = isElite ? 1.3 : 1.0;
   if(isElite){
     // Elite: dark armored look, glowing eyes, bigger (matches host spawnZombie)
@@ -5736,11 +6373,13 @@ socket.on('zombie_update', data => {
       scene.remove(z.mesh);
       // Still count kills/score for the client display
       kills++; zombsLeft = Math.max(0, zombsLeft-1);
-      const cMult = z.elite ? 3 : 1;
+      const cMult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
       const pts=(100+wave*50)*cMult; score+=pts;
       const earn=Math.floor((60+Math.random()*40)*cMult); credits+=earn;
-      const cPrefix = z.elite ? '💀 ELITE KILLED  ' : '';
+      const cPrefix = z.boss ? '☠ BOSS KILLED  ' : (z.elite ? '💀 ELITE KILLED  ' : '');
       addFeedSafe(cPrefix+'+'+pts+' pts  +'+earn+' credits');
+      // Boss death on client: hide health bar
+      if(z.boss){ activeBoss=null; bossRoundActive=false; document.getElementById('bossBar').classList.remove('on'); }
       updateHUD();
       continue;
     }
@@ -5753,18 +6392,29 @@ socket.on('zombie_update', data => {
     z.maxHp = zd.maxHp;
     z.speed = zd.speed;
     z.elite = zd.elite;
+    z.boss = zd.boss;
     z.meleeDmg = zd.meleeDmg || 10;
 
-    // FIX: Rebuild mesh when elite status changes so clients SEE elite zombies
-    if(!!zd.elite !== !!z._eliteMesh){
+    // Boss sync: track activeBoss on client for health bar
+    if(zd.boss && z.alive){
+      activeBoss = z;
+      activeBoss._bossName = zd.bossName || 'THE ABOMINATION';
+      bossRoundActive = true;
+      updateBossHealthBar();
+    }
+
+    // FIX: Rebuild mesh when elite/boss status changes so clients SEE correct zombie type
+    const needsRebuild = (!!zd.elite !== !!z._eliteMesh) || (!!zd.boss !== !!z._bossMesh);
+    if(needsRebuild){
       const oldPos = z.mesh.position.clone();
       const oldRot = z.mesh.rotation.y;
       scene.remove(z.mesh);
-      z.mesh = createClientZombieMesh(!!zd.elite);
+      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss);
       z.mesh.position.copy(oldPos);
       z.mesh.rotation.y = oldRot;
       if(z.alive) scene.add(z.mesh);
       z._eliteMesh = !!zd.elite;
+      z._bossMesh = !!zd.boss;
     }
 
     // Leg animation — swing via hip pivots (prevents clipping)
@@ -5936,11 +6586,14 @@ function startGameMP(spawnPos){
   for(const b of bullets) scene.remove(b.mesh);
   for(const p of particles) scene.remove(p.mesh);
   zombies.length=0; bullets.length=0; particles.length=0;
+  // Reset boss state
+  activeBoss=null; bossRoundActive=false;
+  document.getElementById('bossBar').classList.remove('on');
 
   pos.copy(spawnPos || new THREE.Vector3(0,0,0));
   rollDir.set(0,0,0);
   health=100; credits=500; score=0; kills=0; wave=0;
-  regenTimer=0; reloading=false; reloadT=0; shootCD=0;
+  regenTimer=0; reloading=false; reloadT=0; shootCD=0; burstQueue=0; burstCD=0;
   rollT=0; rollCD=0; invT=0; walkT=0;
   waveActive=false; waveDelay=0; zombsLeft=0;
   camYaw=0; camPitch=0.45; paused=false; shooting=false; adsActive=false; adsLerp=0; fpPitch=0;
