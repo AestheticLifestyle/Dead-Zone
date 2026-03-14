@@ -117,6 +117,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 /* overlays */
 #hflash{position:fixed;inset:0;background:rgba(255,0,0,.2);pointer-events:none;opacity:0;transition:opacity .1s}
 #gunFlash{position:fixed;inset:0;background:rgba(255,215,0,.1);pointer-events:none;opacity:0;transition:opacity .08s}
+#lowHpVignette{position:fixed;inset:0;pointer-events:none;z-index:9997;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse at center,transparent 40%,rgba(180,0,0,.45) 100%)}
 
 /* kill feed */
 #kfeed{position:fixed;top:66px;right:20px;display:flex;flex-direction:column;gap:3px;align-items:flex-end;pointer-events:none}
@@ -497,6 +498,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 <div id="hflash"></div>
 <div id="gunFlash"></div>
 <div id="hsMarker">HEADSHOT</div>
+<div id="lowHpVignette"></div>
 
 <!-- Reload bar -->
 <div id="rlWrap"><div class="rll">Reloading</div><div id="rlTrack"><div id="rlFill"></div></div></div>
@@ -984,10 +986,12 @@ cam.lookAt(0,0,0);
 scene.add(new THREE.AmbientLight(0x331010, 1.5));
 const sun = new THREE.DirectionalLight(0x5577aa,0.9);
 sun.position.set(-15,25,-10); sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);
+sun.shadow.mapSize.set(4096,4096);
 sun.shadow.camera.left=-50; sun.shadow.camera.right=50;
 sun.shadow.camera.top=50;   sun.shadow.camera.bottom=-50;
 sun.shadow.camera.far=130;
+sun.shadow.bias = -0.0005;
+sun.shadow.normalBias = 0.02;
 scene.add(sun);
 const dynLight = new THREE.PointLight(0xff2200,2.5,45);
 dynLight.position.set(0,3,0);
@@ -3274,6 +3278,160 @@ function headshotBurst(p){
 }
 
 // ══════════════════════════════════════════════════
+// PARTICLE SYSTEM (InstancedMesh — single draw call)
+// ══════════════════════════════════════════════════
+const PARTICLE_MAX = 200;
+const _pGeo = new THREE.SphereGeometry(0.04, 4, 4);
+const _pMat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, depthWrite:false});
+const particleMesh = new THREE.InstancedMesh(_pGeo, _pMat, PARTICLE_MAX);
+particleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+particleMesh.frustumCulled = false;
+particleMesh.count = 0;
+// Initialize instance color buffer
+for(let i=0;i<PARTICLE_MAX;i++) particleMesh.setColorAt(i, new THREE.Color(1,1,1));
+particleMesh.instanceColor.needsUpdate = true;
+scene.add(particleMesh);
+
+const _particles = [];         // {pos, vel, life, maxLife, color, size}
+const _pDummy = new THREE.Object3D();
+const _pColor = new THREE.Color();
+
+function spawnParticles(origin, count, cfg){
+  // cfg: {color, colorVar, speed, speedVar, size, life, gravity, spread}
+  for(let i=0;i<count;i++){
+    const angle = Math.random()*Math.PI*2;
+    const elev  = (Math.random()-0.3) * (cfg.spread||Math.PI);
+    const spd   = cfg.speed + (Math.random()-0.5)*(cfg.speedVar||cfg.speed*0.6);
+    const ce    = Math.cos(elev);
+    _particles.push({
+      x: origin.x, y: origin.y, z: origin.z,
+      vx: Math.cos(angle)*ce*spd,
+      vy: Math.sin(elev)*spd + (cfg.upBias||0),
+      vz: Math.sin(angle)*ce*spd,
+      life: cfg.life + Math.random()*cfg.life*0.3,
+      maxLife: cfg.life,
+      r: ((cfg.color>>16)&255)/255 + (Math.random()-0.5)*(cfg.colorVar||0.1),
+      g: ((cfg.color>>8)&255)/255  + (Math.random()-0.5)*(cfg.colorVar||0.1),
+      b: (cfg.color&255)/255       + (Math.random()-0.5)*(cfg.colorVar||0.1),
+      size: cfg.size || 1,
+      gravity: cfg.gravity !== undefined ? cfg.gravity : 4
+    });
+  }
+  // Cap pool
+  while(_particles.length > PARTICLE_MAX) _particles.shift();
+}
+
+function tickParticles(dt){
+  for(let i=_particles.length-1;i>=0;i--){
+    const p=_particles[i];
+    p.life-=dt;
+    if(p.life<=0){ _particles.splice(i,1); continue; }
+    p.vy -= p.gravity*dt;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
+    // Bounce off ground
+    if(p.y<0.03){ p.y=0.03; p.vy=Math.abs(p.vy)*0.3; p.vx*=0.7; p.vz*=0.7; }
+  }
+  // Upload to InstancedMesh
+  particleMesh.count = _particles.length;
+  for(let i=0;i<_particles.length;i++){
+    const p=_particles[i];
+    const alpha = p.life/p.maxLife;
+    const s = p.size * alpha;
+    _pDummy.position.set(p.x,p.y,p.z);
+    _pDummy.scale.set(s,s,s);
+    _pDummy.updateMatrix();
+    particleMesh.setMatrixAt(i, _pDummy.matrix);
+    _pColor.setRGB(Math.max(0,p.r), Math.max(0,p.g), Math.max(0,p.b));
+    particleMesh.setColorAt(i, _pColor);
+  }
+  particleMesh.instanceMatrix.needsUpdate = true;
+  if(particleMesh.instanceColor) particleMesh.instanceColor.needsUpdate = true;
+}
+
+// Particle presets
+function muzzleSpark(worldPos){
+  spawnParticles(worldPos, 4, {color:0xffcc44, speed:6, life:0.12, size:1.2, gravity:1, spread:Math.PI*0.4, colorVar:0.15});
+}
+function bloodHit(worldPos){
+  spawnParticles(worldPos, 6, {color:0x880011, speed:3.5, life:0.35, size:1.5, gravity:6, spread:Math.PI*0.7, upBias:1.5, colorVar:0.08});
+}
+function deathBurst(worldPos){
+  spawnParticles(worldPos, 14, {color:0x991111, speed:4, life:0.55, size:2, gravity:5, spread:Math.PI, upBias:2.5, colorVar:0.12});
+  spawnParticles(worldPos, 5, {color:0x333333, speed:2.5, life:0.7, size:2.5, gravity:3, spread:Math.PI, upBias:3, colorVar:0.05});
+}
+
+// ══════════════════════════════════════════════════
+// CAMERA SHAKE
+// ══════════════════════════════════════════════════
+let shakeIntensity = 0;
+let shakeDecay = 8;  // how fast shake fades
+
+function triggerShake(intensity, decay){
+  shakeIntensity = Math.max(shakeIntensity, intensity);
+  if(decay) shakeDecay = decay;
+}
+
+function applyShake(dt){
+  if(shakeIntensity < 0.001){ shakeIntensity = 0; return; }
+  const ox = (Math.random()-0.5)*2*shakeIntensity;
+  const oy = (Math.random()-0.5)*2*shakeIntensity;
+  cam.position.x += ox;
+  cam.position.y += oy;
+  shakeIntensity *= Math.max(0, 1 - shakeDecay*dt);
+}
+
+// ══════════════════════════════════════════════════
+// ZOMBIE CORPSE SYSTEM
+// ══════════════════════════════════════════════════
+const MAX_CORPSES = 15;
+const CORPSE_LIFE = 4;    // seconds before fade starts
+const CORPSE_FADE = 1.5;  // seconds to fully fade out
+const _corpses = [];       // {mesh, timer, fading}
+
+function spawnCorpse(mesh){
+  // Tip the mesh onto its side (fall over)
+  mesh.rotation.z = (Math.random() > 0.5 ? 1 : -1) * Math.PI/2;
+  mesh.position.y = 0.25; // slightly above ground so it doesn't clip
+  // Make all materials transparent-capable
+  mesh.traverse(c => {
+    if(c.isMesh && c.material){
+      c.material = c.material.clone();
+      c.material.transparent = true;
+    }
+  });
+  // Remove any lights from the corpse to save GPU
+  const lightsToRemove = [];
+  mesh.traverse(c => { if(c.isLight) lightsToRemove.push(c); });
+  lightsToRemove.forEach(l => l.parent && l.parent.remove(l));
+
+  _corpses.push({mesh, timer: CORPSE_LIFE + CORPSE_FADE, fading: false});
+  // Cap corpse count
+  while(_corpses.length > MAX_CORPSES){
+    const old = _corpses.shift();
+    scene.remove(old.mesh);
+  }
+}
+
+function tickCorpses(dt){
+  for(let i=_corpses.length-1;i>=0;i--){
+    const c = _corpses[i];
+    c.timer -= dt;
+    if(c.timer <= 0){
+      scene.remove(c.mesh);
+      _corpses.splice(i, 1);
+      continue;
+    }
+    // Fade phase
+    if(c.timer < CORPSE_FADE){
+      const alpha = c.timer / CORPSE_FADE;
+      c.mesh.traverse(ch => {
+        if(ch.isMesh && ch.material) ch.material.opacity = alpha;
+      });
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
 // SHOOTING
 // ══════════════════════════════════════════════════
 function spawnBullet(burstCont){
@@ -3392,6 +3550,13 @@ function spawnBullet(burstCont){
     playerMesh.updateMatrixWorld(true);
     muzzleFL.getWorldPosition(muzzleWorldPos);
   }
+
+  // Muzzle spark particles
+  muzzleSpark(muzzleWorldPos);
+
+  // Per-weapon shoot shake
+  const _shootShake = {fists:0,knife:0,pistol:0.02,smg:0.015,shotgun:0.08,ak47:0.03,sniper:0.06,lmg:0.04,rpg:0.12,plasma:0.025,minigun:0.018,flamethrower:0.01,burst:0.03,autoshotgun:0.06};
+  triggerShake(_shootShake[g.key]||0.02, 14);
 
   for(let p=0;p<g.pellets;p++){
     const dir = baseDir.clone();
@@ -3559,10 +3724,10 @@ function activatePowerup(pw){
     addFeed('☢️ NUKE!');
     for(const z of zombies){
       if(!z.alive) continue;
-      // Boss takes 30% of max HP as damage instead of instant kill
       const nukeDmg = z.boss ? Math.floor(z.maxHp * 0.3) : 999999;
       damageZombie(z, nukeDmg);
     }
+    triggerShake(0.5, 4); // big nuke screen shake
     // Screen flash effect
     const flash = document.getElementById('adsVignette');
     flash.style.opacity = 1;
@@ -3652,6 +3817,7 @@ function spawnZombie(w, forceElite){
     g.userData.legR = zlrPiv;
     for(const s of[-1,1]){
       const arm=mkBox(.2*scale,.6*scale,.2*scale,skin); arm.position.set(s*.56*scale,1.05*scale,-.2*scale); arm.rotation.x=-.6; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
     }
     // Glowing yellow eyes — bigger, more menacing
     for(const ex of[-.12,.12]){
@@ -3677,6 +3843,7 @@ function spawnZombie(w, forceElite){
     g.userData.legR = zlrPiv;
     for(const s of[-1,1]){
       const arm=mkBox(.18,.55,.18,skin); arm.position.set(s*.52,1.,-.18); arm.rotation.x=-.6; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
     }
     for(const ex of[-.1,.1]){
       const eye=new THREE.Mesh(new THREE.BoxGeometry(.07,.07,.04),new THREE.MeshBasicMaterial({color:0xff0000}));
@@ -3698,7 +3865,7 @@ function spawnZombie(w, forceElite){
   zombies.push({
     mesh:g, hp, maxHp:hp, speed, atkT:0, atkCD, alive:true,
     legPhase:Math.random()*Math.PI*2,
-    elite:isElite, meleeDmg
+    elite:isElite, meleeDmg, punchT:0
   });
 
   if(isElite){
@@ -3751,6 +3918,7 @@ function spawnBossZombie(w){
     arm.position.set(s*.7*scale, 1.15*scale, -.3*scale);
     arm.rotation.x = -.7;
     g.add(arm);
+    if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
   }
 
   // Glowing red eyes — large and menacing
@@ -3787,7 +3955,7 @@ function spawnBossZombie(w){
   const bossObj = {
     mesh:g, hp, maxHp:hp, speed, atkT:0, atkCD, alive:true,
     legPhase: Math.random()*Math.PI*2,
-    elite: false, boss: true, meleeDmg
+    elite: false, boss: true, meleeDmg, punchT:0
   };
   zombies.push(bossObj);
   activeBoss = bossObj;
@@ -3842,13 +4010,21 @@ function damageZombie(z,dmg){
   }
   z.hp -= actualDmg;
 
+  // Blood hit particles at zombie position
+  const hitY = z.boss ? 2.0 : (z.elite ? 1.4 : 1.1);
+  bloodHit(z.mesh.position.clone().add(new THREE.Vector3(0, hitY, 0)));
+
   // Update boss health bar in real time
   if(z.boss) updateBossHealthBar();
 
   if(z.hp<=0){
     z.alive=false;
     const deathPos = z.mesh.position.clone();
-    scene.remove(z.mesh); kills++; zombsLeft--;
+    // Death burst particles
+    deathBurst(deathPos.clone().add(new THREE.Vector3(0, 0.8, 0)));
+    // Leave corpse on ground instead of instant removal
+    spawnCorpse(z.mesh);
+    kills++; zombsLeft--;
 
     // Boss / Elite / Normal multiplier for points
     const mult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
@@ -4404,6 +4580,10 @@ function loop(ts){
   else if(deadThisRound && !paused && gameRunning){
     tickDeadSpectator(dt, ts);
   }
+  // Visual systems — always tick (even while paused for particles to finish)
+  tickParticles(dt);
+  tickCorpses(dt);
+  applyShake(dt);
   renderer.render(scene,cam);
 }
 requestAnimationFrame(loop);
@@ -4458,6 +4638,7 @@ function tick(dt,ts){
       updateHUD();
     }
   }
+  tickLowHpWarning();
 
   // ── Downed state tick (multiplayer) ──
   if(downed){
@@ -4838,11 +5019,12 @@ function tick(dt,ts){
       if(dist<cMeleeRange){
         z.atkT-=dt;
         if(z.atkT<=0){
-          z.atkT=z.atkCD;
+          z.atkT=z.atkCD; z.punchT=0.35;
           if(invT<=0 && !modGodMode){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
+            triggerShake(z.boss ? 0.4 : (z.elite ? 0.2 : 0.12), 8);
             if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         }
@@ -4913,9 +5095,10 @@ function tick(dt,ts){
         if(score>bestScore){ bestScore=score; bestDx=dx; bestDz=dz; }
       }
 
-      // Move in best direction
-      z.mesh.position.x+=bestDx*z.speed*dt;
-      z.mesh.position.z+=bestDz*z.speed*dt;
+      // Move in best direction — lurch easing (speed pulses with leg swing)
+      const lurch = 0.75 + 0.25 * Math.abs(Math.sin(z.legPhase));
+      z.mesh.position.x+=bestDx*z.speed*lurch*dt;
+      z.mesh.position.z+=bestDz*z.speed*lurch*dt;
 
       // Hard push-out safety net (last resort, shouldn't trigger often)
       resolveObs(z.mesh.position, ZR);
@@ -4949,6 +5132,21 @@ function tick(dt,ts){
       const legSwing = Math.sin(z.legPhase) * 0.38;
       if(z.mesh.userData.legL) z.mesh.userData.legL.rotation.x =  legSwing;
       if(z.mesh.userData.legR) z.mesh.userData.legR.rotation.x = -legSwing;
+      // Slight torso lean into movement
+      z.mesh.children[0] && (z.mesh.children[0].rotation.x = -0.08 * lurch);
+    }
+
+    // Punch animation tick
+    if(z.punchT > 0){
+      z.punchT -= dt;
+      const p = Math.max(0, z.punchT);
+      const swing = Math.sin((1 - p/0.35) * Math.PI) * -1.4; // fast forward swing arc
+      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = swing;
+      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = swing;
+    } else {
+      // Resting arm pose
+      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = -0.6;
+      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = -0.6;
     }
 
     // Melee damage — zombie hits whichever player is closest
@@ -4956,7 +5154,7 @@ function tick(dt,ts){
     if(dist<meleeRange){
       z.atkT-=dt;
       if(z.atkT<=0){
-        z.atkT=z.atkCD;
+        z.atkT=z.atkCD; z.punchT=0.35;
         // Check if the closest target is the local (host) player
         if(closestPos === pos){
           // FIX: Skip melee damage if host is downed — downed players die only from bleedout timer
@@ -4964,6 +5162,7 @@ function tick(dt,ts){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
+            triggerShake(z.boss ? 0.4 : (z.elite ? 0.2 : 0.12), 8);
             if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         } else {
@@ -5108,8 +5307,9 @@ function tickHostZombiesWhileDead(dt, ts){
         const score=desire-blocked-sep;
         if(score>bestScore){ bestScore=score; bestDx=dx; bestDz=dz; }
       }
-      z.mesh.position.x+=bestDx*z.speed*dt;
-      z.mesh.position.z+=bestDz*z.speed*dt;
+      const lurch2 = 0.75 + 0.25 * Math.abs(Math.sin(z.legPhase));
+      z.mesh.position.x+=bestDx*z.speed*lurch2*dt;
+      z.mesh.position.z+=bestDz*z.speed*lurch2*dt;
       resolveObs(z.mesh.position, ZR);
       clampArena(z.mesh.position);
       // Push zombie out of alive remote players
@@ -5135,6 +5335,19 @@ function tickHostZombiesWhileDead(dt, ts){
       const legSwing = Math.sin(z.legPhase) * 0.38;
       if(z.mesh.userData.legL) z.mesh.userData.legL.rotation.x =  legSwing;
       if(z.mesh.userData.legR) z.mesh.userData.legR.rotation.x = -legSwing;
+      z.mesh.children[0] && (z.mesh.children[0].rotation.x = -0.08 * lurch2);
+    }
+
+    // Punch animation tick
+    if(z.punchT > 0){
+      z.punchT -= dt;
+      const p = Math.max(0, z.punchT);
+      const swing = Math.sin((1 - p/0.35) * Math.PI) * -1.4;
+      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = swing;
+      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = swing;
+    } else {
+      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = -0.6;
+      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = -0.6;
     }
 
     // Melee damage — zombie hits closest alive remote player
@@ -5142,7 +5355,7 @@ function tickHostZombiesWhileDead(dt, ts){
     if(dist<meleeRange && closestPos !== pos){
       z.atkT-=dt;
       if(z.atkT<=0){
-        z.atkT=z.atkCD;
+        z.atkT=z.atkCD; z.punchT=0.35;
         for(const rpId in remotePlayers){
           if(remotePlayers[rpId].mesh.position === closestPos){
             socket.emit('zombie_melee_hit', { targetId: rpId, dmg: z.meleeDmg||10 });
@@ -5271,6 +5484,8 @@ function triggerGameOver(){
   }
   // Solo: full game over as before
   alive=false; paused=false; gameRunning=false;
+  stopHeartbeat();
+  document.getElementById('lowHpVignette').style.opacity = 0;
   downed=false; downedTimer=0; beingRevived=false;
   reviveTarget=null; reviveProgress=0;
   adsActive=false; adsLerp=0; fpPitch=0;
@@ -5750,6 +5965,80 @@ try {
   const bossRoarSrc = sfxCtx.createMediaElementSource(window._bossRoarAudio);
   bossRoarSrc.connect(window._bossRoarGain);
 } catch(e){ console.warn('bossRoar Web Audio routing failed', e); }
+
+// ── Low HP heartbeat system ──
+let _heartbeatPlaying = false;
+let _heartbeatInterval = null;
+
+function playHeartbeat(){
+  const t = sfxCtx.currentTime;
+  const g = sfxCtx.createGain();
+  g.connect(sfxGainNode);
+  g.gain.setValueAtTime(0.35, t);
+  g.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+  const osc = sfxCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(55, t);
+  osc.frequency.exponentialRampToValueAtTime(35, t + 0.2);
+  osc.connect(g);
+  osc.start(t);
+  osc.stop(t + 0.25);
+  // Second thump (lub-dub)
+  setTimeout(()=>{
+    const t2 = sfxCtx.currentTime;
+    const g2 = sfxCtx.createGain();
+    g2.connect(sfxGainNode);
+    g2.gain.setValueAtTime(0.25, t2);
+    g2.gain.exponentialRampToValueAtTime(0.01, t2 + 0.18);
+    const osc2 = sfxCtx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(45, t2);
+    osc2.frequency.exponentialRampToValueAtTime(30, t2 + 0.15);
+    osc2.connect(g2);
+    osc2.start(t2);
+    osc2.stop(t2 + 0.18);
+  }, 120);
+}
+
+function startHeartbeat(rate){
+  if(_heartbeatPlaying) stopHeartbeat();
+  _heartbeatPlaying = true;
+  playHeartbeat();
+  _heartbeatInterval = setInterval(playHeartbeat, rate);
+}
+
+function stopHeartbeat(){
+  _heartbeatPlaying = false;
+  if(_heartbeatInterval){ clearInterval(_heartbeatInterval); _heartbeatInterval = null; }
+}
+
+function tickLowHpWarning(){
+  const maxHP = getMaxHealth();
+  const ratio = health / maxHP;
+  const el = document.getElementById('lowHpVignette');
+  if(!alive || health <= 0){
+    el.style.opacity = 0;
+    if(_heartbeatPlaying) stopHeartbeat();
+    return;
+  }
+  if(ratio < 0.30){
+    // Intensity scales: at 30% = subtle, at 5% = intense
+    const intensity = 1 - (ratio / 0.30); // 0 at 30%, 1 at 0%
+    el.style.opacity = 0.3 + intensity * 0.7;
+    // Heartbeat rate: slower at 30%, faster near death
+    const rate = Math.floor(900 - intensity * 500); // 900ms → 400ms
+    if(!_heartbeatPlaying){
+      startHeartbeat(rate);
+    } else if(_heartbeatInterval){
+      // Update rate dynamically
+      clearInterval(_heartbeatInterval);
+      _heartbeatInterval = setInterval(playHeartbeat, rate);
+    }
+  } else {
+    el.style.opacity = 0;
+    if(_heartbeatPlaying) stopHeartbeat();
+  }
+}
 
 function playSfx(type){
   const t = sfxCtx.currentTime;
@@ -6722,7 +7011,7 @@ function createClientZombieMesh(isElite, isBoss){
     const zlrPiv=new THREE.Group(); zlrPiv.position.set(.25*scale,.7*scale,0); g.add(zlrPiv);
     const zlr=mkBox(.3*scale,.8*scale,.3*scale,armor); zlr.position.set(0,-.4*scale,0); zlrPiv.add(zlr);
     g.userData.legL=zllPiv; g.userData.legR=zlrPiv;
-    for(const s of[-1,1]){ const arm=mkBox(.26*scale,.75*scale,.26*scale,skin); arm.position.set(s*.7*scale,1.15*scale,-.3*scale); arm.rotation.x=-.7; g.add(arm); }
+    for(const s of[-1,1]){ const arm=mkBox(.26*scale,.75*scale,.26*scale,skin); arm.position.set(s*.7*scale,1.15*scale,-.3*scale); arm.rotation.x=-.7; g.add(arm); if(s===-1) g.userData.armL=arm; else g.userData.armR=arm; }
     for(const ex of[-.14,.14]){ const eye=new THREE.Mesh(new THREE.BoxGeometry(.12*scale,.1*scale,.06*scale),new THREE.MeshBasicMaterial({color:0xff0000})); eye.position.set(ex*scale,1.9*scale,-.26*scale); g.add(eye); }
     const bGlow=new THREE.PointLight(0xff2200,1.2,10); bGlow.position.set(0,1.5*scale,0); g.add(bGlow);
     const gGlow=new THREE.PointLight(0xff0000,0.6,6); gGlow.position.set(0,0.2,0); g.add(gGlow);
@@ -6743,6 +7032,7 @@ function createClientZombieMesh(isElite, isBoss){
     g.userData.legR = zlrPiv;
     for(const s of[-1,1]){
       const arm=mkBox(.2*scale,.6*scale,.2*scale,skin); arm.position.set(s*.56*scale,1.05*scale,-.2*scale); arm.rotation.x=-.6; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
     }
     for(const ex of[-.12,.12]){
       const eye=new THREE.Mesh(new THREE.BoxGeometry(.09*scale,.09*scale,.05*scale),new THREE.MeshBasicMaterial({color:0xffcc00}));
@@ -6764,6 +7054,7 @@ function createClientZombieMesh(isElite, isBoss){
     g.userData.legR = zlrPiv;
     for(const s of[-1,1]){
       const arm=mkBox(.18,.55,.18,skin); arm.position.set(s*.52,1.,-.18); arm.rotation.x=-.6; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
     }
     for(const ex of[-.1,.1]){
       const eye=new THREE.Mesh(new THREE.BoxGeometry(.07,.07,.04),new THREE.MeshBasicMaterial({color:0xff0000}));
@@ -6781,7 +7072,7 @@ socket.on('zombie_update', data => {
     while(zombies.length <= zd.i){
       const g = createClientZombieMesh(false); // placeholder, will be rebuilt if elite
       g.position.set(0,0,0); scene.add(g);
-      zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:true,legPhase:Math.random()*Math.PI*2,_eliteMesh:false});
+      zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:true,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,punchT:0});
     }
     const z = zombies[zd.i];
     if(zd.alive && !z.alive){
@@ -6873,6 +7164,7 @@ socket.on('zombie_melee_hit', data => {
   health = Math.max(0, health - (data.dmg || 10));
   regenTimer = 0;
   hitFlash(); updateHUD();
+  triggerShake(0.15, 8);
   if(health <= 0){
     if(mpMode !== 'solo' && !downed){ enterDownedState(); return; }
     if(trySoloQuickRevive()) return;
@@ -7012,6 +7304,9 @@ function startGameMP(spawnPos){
   for(const b of bullets) scene.remove(b.mesh);
   for(const p of particles) scene.remove(p.mesh);
   zombies.length=0; bullets.length=0; particles.length=0;
+  // Clear corpses
+  for(const c of _corpses) scene.remove(c.mesh);
+  _corpses.length=0;
   // Reset boss state
   activeBoss=null; bossRoundActive=false;
   document.getElementById('bossBar').classList.remove('on');
@@ -7030,6 +7325,8 @@ function startGameMP(spawnPos){
   document.getElementById('reviveBar').classList.remove('on');
   document.getElementById('deadSpectateOverlay').classList.remove('on');
   document.getElementById('deadSpectateText').classList.remove('on');
+  document.getElementById('lowHpVignette').style.opacity = 0;
+  stopHeartbeat();
   resetPowerups();
   resetPerks();
 
