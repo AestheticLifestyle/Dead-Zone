@@ -643,6 +643,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="settings-body off" id="tab-gameplay">
       <label class="srow"><span>Field of View</span><input type="range" min="50" max="120" value="65" id="sFov"><span class="sval" id="sFovVal">65</span></label>
       <label class="srow"><span>Show Crosshair</span><label class="toggle"><input type="checkbox" id="sXhair" checked><span class="tslider"></span></label></label>
+      <label class="srow"><span>First Person Mode</span><label class="toggle"><input type="checkbox" id="sFirstPerson"><span class="tslider"></span></label></label>
       <label class="srow"><span>Fullscreen</span><label class="toggle"><input type="checkbox" id="sFullscreen"><span class="tslider"></span></label></label>
     </div>
 
@@ -4218,9 +4219,10 @@ document.addEventListener('pointerlockchange',()=>{
 
 document.addEventListener('mousemove',e=>{
   if((!alive && !deadThisRound)||paused||!pointerLocked) return;
-  const sens = SETTINGS.sensitivity * (1 - adsLerp * (1-ADS_SENS_MULT));
+  const fpAdsSens = SETTINGS.firstPerson ? (adsActive ? ADS_SENS_MULT : 1) : (1 - adsLerp * (1-ADS_SENS_MULT));
+  const sens = SETTINGS.sensitivity * fpAdsSens;
   camYaw -= e.movementX*sens;
-  if(adsLerp > 0.5){
+  if(SETTINGS.firstPerson || adsLerp > 0.5){
     // First-person mode: control fpPitch (vertical aim angle in radians)
     fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - e.movementY * sens * 1.5));
   } else {
@@ -4494,21 +4496,39 @@ function tick(dt,ts){
   playerMesh.rotation.y=camYaw;
 
   // ══════════════════════════════════════════════════
-  // ADS — TRUE FIRST-PERSON (hard switch, NOT a blend)
+  // ADS / FIRST-PERSON CAMERA SYSTEM
   // ══════════════════════════════════════════════════
   const curGunADS = currentGun();
   const isScoped = (curGunADS.key === 'sniper');
   const isMelee  = !!curGunADS.melee;
-  const adsTarget = (adsActive && alive && !downed && !paused) ? 1 : 0;
+  const fpMode = SETTINGS.firstPerson; // permanent first-person setting
+
+  // In first-person mode: adsLerp is always 1 (camera at eyes).
+  // ADS button controls a separate FOV zoom instead.
+  // In third-person mode: adsLerp transitions 0→1 as before (ADS = zoom to first person).
+  const adsTarget = fpMode ? 1 : ((adsActive && alive && !downed && !paused) ? 1 : 0);
   adsLerp += (adsTarget - adsLerp) * Math.min(1, ADS_SPEED * dt);
   if(Math.abs(adsLerp - adsTarget) < 0.005) adsLerp = adsTarget;
-  const t = adsLerp; // 0 = full 3rd person, 1 = full 1st person
-  const inFP = t > 0.5; // binary: are we in first-person mode?
+  const t = adsLerp;
+  const inFP = t > 0.5;
 
-  // ── FOV ── (melee gets a lighter zoom, sniper gets heavy zoom)
+  // ── FOV ──
   const baseFov = SETTINGS.fov;
-  const fovMult = isScoped ? ADS_FOV_SCOPE : isMelee ? ADS_FOV_MELEE : ADS_FOV_MULT;
-  cam.fov = baseFov * (1 - t * (1 - fovMult));
+  if(fpMode){
+    // In first-person mode: ADS narrows FOV for aim-down-sights zoom
+    const fpAdsActive = (adsActive && alive && !downed && !paused);
+    const fovMult = isScoped ? ADS_FOV_SCOPE : isMelee ? ADS_FOV_MELEE : ADS_FOV_MULT;
+    const fpAdsTarget = fpAdsActive ? 1 : 0;
+    // Reuse a smooth lerp for FOV zoom
+    if(!window._fpFovLerp) window._fpFovLerp = 0;
+    window._fpFovLerp += (fpAdsTarget - window._fpFovLerp) * Math.min(1, ADS_SPEED * dt);
+    if(Math.abs(window._fpFovLerp - fpAdsTarget) < 0.005) window._fpFovLerp = fpAdsTarget;
+    cam.fov = baseFov * (1 - window._fpFovLerp * (1 - fovMult));
+  } else {
+    // Third-person mode: FOV changes with adsLerp as before
+    const fovMult = isScoped ? ADS_FOV_SCOPE : isMelee ? ADS_FOV_MELEE : ADS_FOV_MULT;
+    cam.fov = baseFov * (1 - t * (1 - fovMult));
+  }
   cam.updateProjectionMatrix();
 
   if(inFP){
@@ -4549,22 +4569,27 @@ function tick(dt,ts){
 
     // ── Scope overlay for sniper ──
     const scopeEl = document.getElementById('scopeOverlay');
-    if(isScoped && t > 0.85){
+    const fpAdsT = fpMode ? (window._fpFovLerp || 0) : t;
+    if(isScoped && fpAdsT > 0.85){
       scopeEl.classList.add('on');
-      fpGroup.visible = false; // looking through scope — hide arms/gun
+      fpGroup.visible = false;
     } else {
       scopeEl.classList.remove('on');
     }
 
     // ── Crosshair ──
     const xh = document.getElementById('xhair');
-    if(isScoped && t > 0.85){
-      xh.style.display = 'none'; // scope has its own reticle
+    if(isScoped && fpAdsT > 0.85){
+      xh.style.display = 'none';
     } else {
       xh.style.display = '';
-      xh.classList.add('ads');
+      // Only show ADS crosshair style when actually aiming
+      if(fpMode && adsActive) xh.classList.add('ads');
+      else if(fpMode) xh.classList.remove('ads');
+      else xh.classList.add('ads');
     }
-    document.getElementById('adsVignette').style.opacity = 0.25;
+    // Vignette only when ADS-ing (not in permanent FP idle)
+    document.getElementById('adsVignette').style.opacity = (fpMode && !adsActive) ? 0 : 0.25;
 
   } else {
     // ══════════════════════════════════════════════════
@@ -5352,6 +5377,7 @@ const SETTINGS = {
   sensitivity:0.003,
   fov:        65,
   showCrosshair: true,
+  firstPerson: false,
   keybinds: {
     forward: 'KeyW',
     back:    'KeyS',
@@ -5428,6 +5454,7 @@ function syncSettingsUI(){
   document.getElementById('sFov').value = SETTINGS.fov;
   document.getElementById('sFovVal').textContent = SETTINGS.fov;
   document.getElementById('sXhair').checked = SETTINGS.showCrosshair;
+  document.getElementById('sFirstPerson').checked = SETTINGS.firstPerson;
   // Keybind buttons
   for(const [action, code] of Object.entries(SETTINGS.keybinds)){
     const btn = document.getElementById('kb-'+action);
@@ -5519,6 +5546,18 @@ document.getElementById('sFov').addEventListener('input', e=>{
 // Crosshair toggle
 document.getElementById('sXhair').addEventListener('change', e=>{
   SETTINGS.showCrosshair = e.target.checked;
+});
+
+document.getElementById('sFirstPerson').addEventListener('change', e=>{
+  SETTINGS.firstPerson = e.target.checked;
+  // When toggling to first person, reset pitch; when toggling to third, reset ADS state
+  if(SETTINGS.firstPerson){
+    fpPitch = 0;
+  } else {
+    adsActive = false;
+    adsLerp = 0;
+  }
+  saveSettings();
 });
 
 // Fullscreen toggle
@@ -6876,7 +6915,7 @@ function startGameMP(spawnPos){
   regenTimer=0; reloading=false; reloadT=0; shootCD=0; burstQueue=0; burstCD=0;
   rollT=0; rollCD=0; invT=0; walkT=0;
   waveActive=false; waveDelay=0; zombsLeft=0;
-  camYaw=0; camPitch=0.45; paused=false; shooting=false; adsActive=false; adsLerp=0; fpPitch=0;
+  camYaw=0; camPitch=0.45; paused=false; shooting=false; adsActive=false; adsLerp=SETTINGS.firstPerson?1:0; fpPitch=0;
   downed=false; downedTimer=0; reviveTarget=null; reviveProgress=0; beingRevived=false;
   deadThisRound=false;
   document.getElementById('downedOverlay').classList.remove('on');
@@ -7006,9 +7045,10 @@ if(isMobile){
       lookLastY = t.clientY;
 
       if((!alive && !deadThisRound)||paused) continue;
-      const sens = SETTINGS.sensitivity * 2.5 * (1 - adsLerp * (1-ADS_SENS_MULT));
+      const fpAdsSens2 = SETTINGS.firstPerson ? (adsActive ? ADS_SENS_MULT : 1) : (1 - adsLerp * (1-ADS_SENS_MULT));
+      const sens = SETTINGS.sensitivity * 2.5 * fpAdsSens2;
       camYaw -= dx * sens;
-      if(adsLerp > 0.5){
+      if(SETTINGS.firstPerson || adsLerp > 0.5){
         fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - dy * sens * 1.5));
       } else {
         camPitch = Math.max(0.15, Math.min(0.8, camPitch + dy * sens));
@@ -7055,9 +7095,10 @@ if(isMobile){
         shootLastX = t.clientX;
         shootLastY = t.clientY;
         if((!alive && !deadThisRound) || paused) continue;
-        const sens = SETTINGS.sensitivity * 2.5 * (1 - adsLerp * (1 - ADS_SENS_MULT));
+        const fpAdsSens3 = SETTINGS.firstPerson ? (adsActive ? ADS_SENS_MULT : 1) : (1 - adsLerp * (1 - ADS_SENS_MULT));
+        const sens = SETTINGS.sensitivity * 2.5 * fpAdsSens3;
         camYaw -= dx * sens;
-        if(adsLerp > 0.5){
+        if(SETTINGS.firstPerson || adsLerp > 0.5){
           fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - dy * sens * 1.5));
         } else {
           camPitch = Math.max(0.15, Math.min(0.8, camPitch + dy * sens));
