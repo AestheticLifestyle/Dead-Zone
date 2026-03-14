@@ -878,126 +878,66 @@ const MAPS = {
     // SINGLE PERK MACHINE — near gas station
     perkMachinePos: {x:-12,y:0,z:13},
   },
-  outpost: {
-    id:'outpost', name:'Outpost Omega', icon:'🪖',
-    theme:'Destroyed military base',
-    desc:'A bombed-out military outpost. Watchtowers, tanks, sandbag checkpoints, and a fortified command building. Nowhere is safe.',
+  carnival: {
+    id:'carnival', name:'Dark Carnival', icon:'🎪',
+    theme:'Abandoned traveling carnival',
+    desc:'A neon-lit nightmare. Flickering lights, shattered rides, and nowhere to run when the horde arrives.',
     tag:'NEW',
-    arena: 48,
-    groundColor: 0x1a1408,
-    fogColor: 0x0a0a08, fogDensity: 0.022,
-    clearColor: 0x0a0a08,
-    ambientColor: 0x222218, ambientIntensity: 1.3,
-    sunColor: 0x667788, sunIntensity: 0.7,
-    sunPos: {x:-20,y:35,z:-15},
-    gridColor1: 0x1e1a10, gridColor2: 0x141008,
+    arena: 40,
+    groundColor: 0x0e0a10,
+    fogColor: 0x0a0610, fogDensity: 0.024,
+    clearColor: 0x0a0610,
+    ambientColor: 0x2a1535, ambientIntensity: 1.4,
+    sunColor: 0x6655aa, sunIntensity: 0.5,
+    sunPos: {x:-10,y:30,z:10},
+    gridColor1: 0x1a0e1e, gridColor2: 0x120a14,
     perimeterCount: 0, perimeterColor: 0x1a1a1a,
-    perimeterRadius: 49, perimeterSpread: 3,
+    perimeterRadius: 41, perimeterSpread: 3,
     obstacles: [
-      // ── Main Command Building (north centre) ──
-      {x:0,z:-30,w:18,h:5,d:12},
-      // ── East Shed (Pack-A-Punch area) ──
-      {x:16,z:-30,w:7,h:3.5,d:7},
-      // ── Inner courtyard walls (north zone) ──
-      {x:-8,z:-14,w:14,h:1.8,d:0.6},    // north wall left
-      {x:8,z:-14,w:14,h:1.8,d:0.6},     // north wall right
-      {x:-16,z:-6,w:0.6,h:1.8,d:10},    // west partition
-      {x:16,z:-6,w:0.6,h:1.8,d:10},     // east partition
-      // ── Inner courtyard walls (south zone) ──
-      {x:-7,z:12,w:12,h:1.8,d:0.6},     // south wall left
-      {x:7,z:12,w:12,h:1.8,d:0.6},      // south wall right
-      {x:-14,z:16,w:0.6,h:1.8,d:8},     // sw partition
-      {x:14,z:16,w:0.6,h:1.8,d:8},      // se partition
-      // ── Checkpoints (sandbag barricades) ──
-      {x:-12,z:2,w:8,h:1,d:1.5},        // left mid-checkpoint
-      {x:12,z:2,w:8,h:1,d:1.5},         // right mid-checkpoint
-      {x:0,z:24,w:8,h:1,d:1.5},         // south checkpoint
-      // ── Destroyed Vehicles ──
-      {x:-14,z:-22,w:3,h:2.2,d:5},      // truck 1 (north-west)
-      {x:-18,z:-14,w:3,h:2.2,d:5},      // truck 2 (west)
-      {x:24,z:-4,w:4,h:1.6,d:6},        // tank east
-      {x:-24,z:4,w:4,h:1.6,d:6},        // tank west
-      {x:-16,z:28,w:2.5,h:1.4,d:4},     // jeep south-west
-      {x:20,z:24,w:4,h:1.6,d:6},        // tank south-east
-      {x:6,z:36,w:2.5,h:1.4,d:4},       // jeep south entrance
-      // ── Watchtower bases (corners + mid-sides) ──
-      {x:-42,z:-38,w:3.5,h:8,d:3.5},    // NW tower
-      {x:42,z:-38,w:3.5,h:8,d:3.5},     // NE tower
-      {x:-42,z:38,w:3.5,h:8,d:3.5},     // SW tower
-      {x:42,z:38,w:3.5,h:8,d:3.5},      // SE tower
-      {x:-44,z:0,w:3,h:7,d:3},          // W mid tower
-      {x:44,z:0,w:3,h:7,d:3},           // E mid tower
+      // ── Ferris Wheel Base (center landmark) ──
+      {x:0,z:0,w:6,h:3,d:6},
+      // ── Midway Booths (north-south strip) ──
+      {x:-4,z:-12,w:3,h:2.5,d:3},   // game booth north-west
+      {x:4,z:-12,w:3,h:2.5,d:3},    // game booth north-east
+      {x:-4,z:12,w:3,h:2.5,d:3},    // food stand south-west
+      {x:4,z:12,w:3,h:2.5,d:3},     // food stand south-east
+      {x:-4,z:-20,w:3,h:2.5,d:3},   // booth far north-west
+      {x:4,z:-20,w:3,h:2.5,d:3},    // booth far north-east
+      // ── Bumper Car Arena (west — open, mystery box area) ──
+      {x:-18,z:0,w:10,h:0.5,d:8},   // bumper car platform
+      {x:-14,z:-2,w:1.5,h:0.8,d:1.5}, // bumper car 1
+      {x:-16,z:2,w:1.5,h:0.8,d:1.5},  // bumper car 2
+      {x:-20,z:-1,w:1.5,h:0.8,d:1.5}, // bumper car 3
+      {x:-22,z:3,w:1.5,h:0.8,d:1.5},  // bumper car 4
+      // ── Fun-House Zone (east — dense, PaP area) ──
+      {x:16,z:-4,w:8,h:3.5,d:6},    // fun-house facade
+      {x:20,z:4,w:4,h:2.5,d:3},     // hall-of-mirrors shell
+      {x:14,z:6,w:2,h:2.5,d:6},     // angled mirror wall
+      {x:22,z:-2,w:2,h:2.5,d:4},    // side corridor wall
+      // ── Carousel Platform (south-west) ──
+      {x:-12,z:16,w:6,h:1.2,d:6},   // carousel base
+      // ── Backstage / Generator (north — perk machine area) ──
+      {x:0,z:-30,w:8,h:2.5,d:4},    // storage tent
+      {x:-8,z:-28,w:3,h:2,d:3},     // generator housing
+      {x:8,z:-28,w:3,h:1.5,d:4},    // supply crates stack
+      // ── Entrance Gate (south) ──
+      {x:-3,z:28,w:2,h:4,d:2},      // gate pillar left
+      {x:3,z:28,w:2,h:4,d:2},       // gate pillar right
       // ── Scattered props ──
-      {x:-6,z:-24,w:1.2,h:1.2,d:1.2},   // crate
-      {x:8,z:-24,w:1,h:1.2,d:1},        // barrel
-      {x:-14,z:6,w:1.2,h:1.2,d:1.2},    // crate near checkpoint
-      {x:14,z:5,w:1,h:1.2,d:1},         // barrel near checkpoint
-      {x:-32,z:-16,w:1.2,h:1.2,d:1.2},  // crate west
-      {x:34,z:12,w:1.2,h:1.2,d:1.2},    // crate east
-      {x:-28,z:24,w:1,h:1.2,d:1},       // barrel sw
-      {x:30,z:-28,w:1,h:1.2,d:1},       // barrel ne
+      {x:-10,z:-8,w:1.2,h:1,d:1.2}, // trash can
+      {x:10,z:8,w:1.2,h:1,d:1.2},   // crate
+      {x:-8,z:24,w:1,h:1.2,d:1},    // barrel
+      {x:12,z:-18,w:1.2,h:1,d:1.2}, // popcorn cart
     ],
-    obstacleColors: [0x2a2018, 0x1e1810, 0x3a3020, 0x141008],
-    mysteryBoxPos: {x:0,y:0,z:-8},         // exposed in north courtyard (risky)
-    papPos: {x:16,y:0,z:-27},              // guarded east shed area
-    playerSpawns: [{x:3,y:0,z:30},{x:-3,y:0,z:30},{x:3,y:0,z:26},{x:-3,y:0,z:26}],
-    soloSpawn: {x:0,y:0,z:28},
-    zombieSpawnRadius: 47, zombieSpawnSpread: 5,
-    decorations: 'outpost',
-    perkMachinePos: {x:-20,y:0,z:24}, perkMachineRot: Math.PI/2,
+    obstacleColors: [0x2a1528, 0x1e1020, 0x3a2038, 0x141018],
+    mysteryBoxPos: {x:-18,y:0,z:-6},
+    papPos: {x:20,y:0,z:4},
+    playerSpawns: [{x:2,y:0,z:24},{x:-2,y:0,z:24},{x:2,y:0,z:20},{x:-2,y:0,z:20}],
+    soloSpawn: {x:0,y:0,z:22},
+    zombieSpawnRadius: 39, zombieSpawnSpread: 5,
+    decorations: 'carnival',
+    perkMachinePos: {x:-8,y:0,z:-28}, perkMachineRot: Math.PI,
   },
-  blackwater: {
-    id:'blackwater', name:'Blackwater Docks', icon:'⚓',
-    theme:'Abandoned industrial harbor',
-    desc:'A fog-choked harbor at night. Shipping containers, rusted cranes, and rotting piers—nowhere to hide.',
-    tag:'NEW',
-    arena: 42,
-    groundColor: 0x0a0e12,
-    fogColor: 0x050a10, fogDensity: 0.028,
-    clearColor: 0x050a10,
-    ambientColor: 0x1a2540, ambientIntensity: 1.4,
-    sunColor: 0x4466aa, sunIntensity: 0.6,
-    sunPos: {x:-10,y:20,z:15},
-    gridColor1: 0x0e1418, gridColor2: 0x0a1015,
-    perimeterCount: 0, perimeterColor: 0x1a1a1a,
-    perimeterRadius: 43, perimeterSpread: 3,
-    obstacles: [
-      // Main Dock — long central pier
-      {x:0,z:16,w:16,h:0.6,d:6},       // dock platform
-      // Cargo Container Yard (west)
-      {x:-14,z:-2,w:6,h:3,d:2.5},      // container stack 1
-      {x:-14,z:3,w:6,h:3,d:2.5},       // container stack 2
-      {x:-8,z:-2,w:6,h:3,d:2.5},       // container stack 3
-      {x:-8,z:3,w:6,h:6,d:2.5},        // double-stacked container
-      {x:-20,z:0,w:3,h:3,d:2.5},       // container 5
-      // Warehouse Exterior (east)
-      {x:16,z:-4,w:10,h:4.5,d:8},      // warehouse building
-      {x:12,z:-12,w:3,h:1.5,d:3},      // loading crate 1
-      {x:16,z:-12,w:3,h:1.5,d:3},      // loading crate 2
-      // Fishing Boat Pier (northeast)
-      {x:10,z:16,w:4,h:1.2,d:3},       // boat hull 1
-      // Crane Platform (center-west)
-      {x:-18,z:12,w:3,h:2,d:3},        // crane base
-      // Ferry Ramp (south)
-      {x:0,z:-16,w:8,h:0.5,d:5},       // ferry ramp platform
-      {x:0,z:-22,w:10,h:1.5,d:3},      // ferry hull (beached)
-      // Harbor Entrance Gate (south-west)
-      {x:-16,z:-16,w:4,h:4,d:2},       // gate pillar left
-      {x:-10,z:-16,w:4,h:4,d:2},       // gate pillar right
-      // Scattered debris
-      {x:6,z:6,w:2,h:1,d:2},           // crate
-      {x:-4,z:-10,w:2,h:0.8,d:2},      // barrel cluster
-    ],
-    obstacleColors: [0x1a2028, 0x242e38, 0x15191e, 0x2a3442],
-    mysteryBoxPos: {x:-14,y:0,z:-2},
-    papPos: {x:16,y:0,z:-12},
-    playerSpawns: [{x:3,y:0,z:3},{x:-3,y:0,z:3},{x:3,y:0,z:-3},{x:-3,y:0,z:-3}],
-    soloSpawn: {x:0,y:0,z:0},
-    zombieSpawnRadius: 41, zombieSpawnSpread: 5,
-    decorations: 'blackwater',
-    // SINGLE PERK MACHINE — open corridor between dock and warehouse, facing back
-    perkMachinePos: {x:6,y:0,z:8}, perkMachineRot: Math.PI,
-  }
 };
 
 // ══════════════════════════════════════════════════
@@ -1155,8 +1095,7 @@ function buildMap(mapId){
 
   // Map-specific decorations
   if(cfg.decorations === 'redline') buildRedlineDecorations();
-  if(cfg.decorations === 'blackwater') buildBlackwaterDecorations();
-  if(cfg.decorations === 'outpost') buildOutpostDecorations();
+  if(cfg.decorations === 'carnival') buildCarnivalDecorations();
 
   // Update player spawn positions for multiplayer
   PLAYER_SPAWNS.length=0;
@@ -2142,6 +2081,340 @@ function buildOutpostDecorations(){
     );
     wire.position.set(rw.x,2.0,rw.z); addObj(wire);
   });
+}
+
+// ══════════════════════════════════════════════════
+// DARK CARNIVAL — custom decorations
+// ══════════════════════════════════════════════════
+function buildCarnivalDecorations(){
+  const addObj = (m) => { scene.add(m); mapSceneObjects.push(m); };
+
+  // ── Asphalt ground surface ──
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(ARENA*2, ARENA*2),
+    new THREE.MeshLambertMaterial({color:0x141018})
+  );
+  ground.rotation.x=-Math.PI/2; ground.position.y=0.01; addObj(ground);
+
+  // ═══════════════════════════════
+  // 1. FERRIS WHEEL (center landmark)
+  // ═══════════════════════════════
+  // Main vertical ring (large thin torus standing upright)
+  const wheelRing = new THREE.Mesh(
+    new THREE.TorusGeometry(8, 0.25, 8, 24),
+    new THREE.MeshLambertMaterial({color:0x884488})
+  );
+  wheelRing.position.set(0, 10, 0);
+  wheelRing.castShadow=true; addObj(wheelRing);
+
+  // Center axle
+  const axle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4, 0.4, 1.5, 8),
+    new THREE.MeshLambertMaterial({color:0x555555})
+  );
+  axle.position.set(0, 10, 0);
+  axle.rotation.x = Math.PI/2;
+  addObj(axle);
+
+  // Support struts (A-frame legs)
+  for(const side of [-1, 1]){
+    const strut = new THREE.Mesh(
+      new THREE.BoxGeometry(0.4, 14, 0.4),
+      new THREE.MeshLambertMaterial({color:0x664466})
+    );
+    strut.position.set(side*2.5, 7, 0);
+    strut.rotation.z = side * 0.18;
+    strut.castShadow=true; addObj(strut);
+  }
+
+  // Spokes (connecting center to rim)
+  for(let i=0; i<8; i++){
+    const angle = (i/8) * Math.PI * 2;
+    const spoke = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 7.5, 0.1),
+      new THREE.MeshLambertMaterial({color:0x776677})
+    );
+    spoke.position.set(0, 10, 0);
+    spoke.rotation.z = angle;
+    addObj(spoke);
+  }
+
+  // Gondola pods hanging from the wheel
+  for(let i=0; i<8; i++){
+    const angle = (i/8) * Math.PI * 2;
+    const gx = Math.sin(angle) * 8;
+    const gy = 10 + Math.cos(angle) * 8;
+    const pod = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 1.2, 0.8),
+      new THREE.MeshLambertMaterial({color:[0xff3377,0x33ccff,0xffaa00,0x33ff77,0xff3377,0x33ccff,0xffaa00,0x33ff77][i]})
+    );
+    pod.position.set(gx, gy, 0);
+    addObj(pod);
+  }
+
+  // Neon lights on the wheel rim
+  const wheelGlow1 = new THREE.PointLight(0xff33aa, 2.5, 18);
+  wheelGlow1.position.set(0, 18, 0); addObj(wheelGlow1);
+  const wheelGlow2 = new THREE.PointLight(0x6633ff, 1.5, 14);
+  wheelGlow2.position.set(0, 5, 0); addObj(wheelGlow2);
+
+  // ═══════════════════════════════
+  // 2. MIDWAY STRIP (booth details)
+  // ═══════════════════════════════
+  const boothPositions = [
+    {x:-4,z:-12},{x:4,z:-12},{x:-4,z:12},{x:4,z:12},{x:-4,z:-20},{x:4,z:-20}
+  ];
+  const boothColors = [0xff2266,0x22ccff,0xffcc00,0xff6622,0xaa33ff,0x33ff88];
+  for(let b=0; b<boothPositions.length; b++){
+    const bp = boothPositions[b];
+    // Awning (colorful roof overhang)
+    const awning = new THREE.Mesh(
+      new THREE.BoxGeometry(3.4, 0.15, 1),
+      new THREE.MeshBasicMaterial({color:boothColors[b], transparent:true, opacity:0.8})
+    );
+    awning.position.set(bp.x, 2.7, bp.z + 1.8);
+    addObj(awning);
+    // Counter shelf
+    const counter = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 0.12, 0.5),
+      new THREE.MeshLambertMaterial({color:0x443322})
+    );
+    counter.position.set(bp.x, 1.2, bp.z + 1.6);
+    addObj(counter);
+    // Neon strip light on awning
+    const stripLight = new THREE.PointLight(boothColors[b], 0.8, 6);
+    stripLight.position.set(bp.x, 2.8, bp.z + 2);
+    addObj(stripLight);
+  }
+
+  // Midway string lights (between booths)
+  for(let z=-22; z<=14; z+=3){
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 6, 6),
+      new THREE.MeshBasicMaterial({color: z%2===0 ? 0xffcc44 : 0xff4488})
+    );
+    bulb.position.set(0, 3.5, z);
+    addObj(bulb);
+    const bulbLight = new THREE.PointLight(z%2===0 ? 0xffcc44 : 0xff4488, 0.3, 4);
+    bulbLight.position.set(0, 3.5, z);
+    addObj(bulbLight);
+  }
+
+  // ═══════════════════════════════
+  // 3. BUMPER CAR ARENA (west)
+  // ═══════════════════════════════
+  // Perimeter railing
+  for(const pos of [{x:-13,z:0,w:0.15,d:8},{x:-23,z:0,w:0.15,d:8},{x:-18,z:4,w:10,d:0.15},{x:-18,z:-4,w:10,d:0.15}]){
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(pos.w, 1.2, pos.d),
+      new THREE.MeshLambertMaterial({color:0x555555})
+    );
+    rail.position.set(pos.x, 0.85, pos.z);
+    addObj(rail);
+  }
+  // Bumper car poles (antenna-style)
+  for(const car of [{x:-14,z:-2},{x:-16,z:2},{x:-20,z:-1},{x:-22,z:3}]){
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 2, 4),
+      new THREE.MeshLambertMaterial({color:0x888888})
+    );
+    pole.position.set(car.x, 1.8, car.z); addObj(pole);
+    // Sparking tip
+    const spark = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 4, 4),
+      new THREE.MeshBasicMaterial({color:0xffff44})
+    );
+    spark.position.set(car.x, 2.8, car.z); addObj(spark);
+  }
+  // Overhead sign
+  const bumperSign = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 1, 0.2),
+    new THREE.MeshBasicMaterial({color:0xff6600, transparent:true, opacity:0.7})
+  );
+  bumperSign.position.set(-18, 3.5, -4.5); addObj(bumperSign);
+  const bumperLight = new THREE.PointLight(0xff6600, 1.5, 10);
+  bumperLight.position.set(-18, 3.5, -4.5); addObj(bumperLight);
+
+  // ═══════════════════════════════
+  // 4. FUN-HOUSE ZONE (east)
+  // ═══════════════════════════════
+  // Creepy entrance arch
+  const funArch = new THREE.Mesh(
+    new THREE.BoxGeometry(6, 0.8, 0.4),
+    new THREE.MeshBasicMaterial({color:0xff0066, transparent:true, opacity:0.6})
+  );
+  funArch.position.set(16, 4, -1); addObj(funArch);
+  // Arch pillars
+  for(const sx of [13,19]){
+    const pillar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 4.5, 0.5),
+      new THREE.MeshLambertMaterial({color:0x992255})
+    );
+    pillar.position.set(sx, 2.25, -1); pillar.castShadow=true; addObj(pillar);
+  }
+  // Fun-house glow (eerie)
+  const funLight1 = new THREE.PointLight(0xff0066, 2, 12);
+  funLight1.position.set(16, 3, -4); addObj(funLight1);
+  const funLight2 = new THREE.PointLight(0x6600ff, 1.5, 10);
+  funLight2.position.set(20, 2, 4); addObj(funLight2);
+
+  // Mirror panels (angled reflective-looking panels in hall-of-mirrors)
+  for(let m=0; m<4; m++){
+    const mirror = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 2.2, 1.5),
+      new THREE.MeshBasicMaterial({color:0x8888cc, transparent:true, opacity:0.4})
+    );
+    mirror.position.set(19 + (m%2)*2, 1.1, 2 + m*1.2);
+    mirror.rotation.y = (m%2===0) ? 0.4 : -0.4;
+    addObj(mirror);
+  }
+
+  // ═══════════════════════════════
+  // 5. CAROUSEL (south-west)
+  // ═══════════════════════════════
+  // Central pole
+  const carouselPole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.3, 5, 8),
+    new THREE.MeshLambertMaterial({color:0xcc8833})
+  );
+  carouselPole.position.set(-12, 3.1, 16); addObj(carouselPole);
+  // Conical roof
+  const carouselRoof = new THREE.Mesh(
+    new THREE.ConeGeometry(4, 2, 12),
+    new THREE.MeshLambertMaterial({color:0xcc2255})
+  );
+  carouselRoof.position.set(-12, 5.2, 16); addObj(carouselRoof);
+  // Horse poles
+  for(let h=0; h<6; h++){
+    const ha = (h/6)*Math.PI*2;
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 2.5, 4),
+      new THREE.MeshLambertMaterial({color:0xddaa44})
+    );
+    pole.position.set(-12+Math.cos(ha)*2.5, 2.5, 16+Math.sin(ha)*2.5);
+    addObj(pole);
+  }
+  // Carousel lights
+  const carLight = new THREE.PointLight(0xffaa33, 1.2, 10);
+  carLight.position.set(-12, 4, 16); addObj(carLight);
+
+  // ═══════════════════════════════
+  // 6. ENTRANCE GATE (south)
+  // ═══════════════════════════════
+  // Gate archway connecting pillars
+  const gateArch = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 1, 1),
+    new THREE.MeshBasicMaterial({color:0xff2288, transparent:true, opacity:0.6})
+  );
+  gateArch.position.set(0, 4.5, 28); addObj(gateArch);
+  // "CARNIVAL" neon sign
+  const gateSign = new THREE.Mesh(
+    new THREE.BoxGeometry(6, 0.8, 0.15),
+    new THREE.MeshBasicMaterial({color:0xff44aa, transparent:true, opacity:0.9})
+  );
+  gateSign.position.set(0, 5.5, 28); addObj(gateSign);
+  const gateGlow = new THREE.PointLight(0xff44aa, 2.5, 14);
+  gateGlow.position.set(0, 5.5, 28); addObj(gateGlow);
+  // Ticket booth (small, next to gate)
+  const ticketBooth = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 2.2, 1.5),
+    new THREE.MeshLambertMaterial({color:0x553344})
+  );
+  ticketBooth.position.set(-6, 1.1, 28); ticketBooth.castShadow=true; addObj(ticketBooth);
+  const ticketWindow = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.6, 0.05),
+    new THREE.MeshBasicMaterial({color:0xffcc44, transparent:true, opacity:0.3})
+  );
+  ticketWindow.position.set(-6, 1.6, 27.2); addObj(ticketWindow);
+
+  // ═══════════════════════════════
+  // 7. BACKSTAGE / GENERATOR (north)
+  // ═══════════════════════════════
+  // Generator detail (exhaust pipe)
+  const exhaust = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.15, 1.5, 6),
+    new THREE.MeshLambertMaterial({color:0x444444})
+  );
+  exhaust.position.set(-8, 2.8, -28); addObj(exhaust);
+  // Work light (harsh, practical)
+  const workLight = new THREE.PointLight(0xffdd88, 1.5, 12);
+  workLight.position.set(0, 3, -30); addObj(workLight);
+  const workBulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.12, 6, 6),
+    new THREE.MeshBasicMaterial({color:0xffee99})
+  );
+  workBulb.position.set(0, 3, -30); addObj(workBulb);
+  // Backstage cables on ground
+  for(let c=0; c<4; c++){
+    const cable = new THREE.Mesh(
+      new THREE.BoxGeometry(4+Math.random()*3, 0.06, 0.06),
+      new THREE.MeshLambertMaterial({color:0x222222})
+    );
+    cable.position.set(-2+c*3, 0.03, -28+Math.random()*4);
+    cable.rotation.y = Math.random()*0.5;
+    addObj(cable);
+  }
+
+  // ═══════════════════════════════
+  // 8. PERIMETER FENCE
+  // ═══════════════════════════════
+  const fenceR = ARENA - 1;
+  // Posts
+  for(let i=0; i<60; i++){
+    const a = (i/60) * Math.PI * 2;
+    const post = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 2, 0.15),
+      new THREE.MeshLambertMaterial({color:0x444444})
+    );
+    post.position.set(Math.cos(a)*fenceR, 1, Math.sin(a)*fenceR);
+    post.castShadow=true; addObj(post);
+  }
+  // Wire strands
+  for(const h of [0.5, 1.0, 1.5, 2.0]){
+    const segments = 60;
+    for(let i=0; i<segments; i++){
+      const a1 = (i/segments)*Math.PI*2;
+      const a2 = ((i+1)/segments)*Math.PI*2;
+      const mx = (Math.cos(a1)+Math.cos(a2))/2 * fenceR;
+      const mz = (Math.sin(a1)+Math.sin(a2))/2 * fenceR;
+      const len = fenceR * Math.PI * 2 / segments;
+      const wire = new THREE.Mesh(
+        new THREE.BoxGeometry(len, 0.04, 0.04),
+        new THREE.MeshLambertMaterial({color:0x555555})
+      );
+      wire.position.set(mx, h, mz);
+      wire.rotation.y = Math.atan2(Math.cos(a1)-Math.cos(a2), Math.sin(a1)-Math.sin(a2));
+      addObj(wire);
+    }
+  }
+
+  // ═══════════════════════════════
+  // 9. SCATTERED CARNIVAL DEBRIS
+  // ═══════════════════════════════
+  // Fallen signs, popcorn, trash
+  const debrisColors = [0x553344, 0x443355, 0x554422, 0x333333];
+  for(let d=0; d<25; d++){
+    const dx = (Math.random()-0.5)*ARENA*1.6;
+    const dz = (Math.random()-0.5)*ARENA*1.6;
+    const deb = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3+Math.random()*0.6, 0.1+Math.random()*0.2, 0.3+Math.random()*0.6),
+      new THREE.MeshLambertMaterial({color:debrisColors[d%4]})
+    );
+    deb.position.set(dx, 0.1, dz);
+    deb.rotation.y = Math.random()*Math.PI;
+    addObj(deb);
+  }
+
+  // Stray neon accent lights around the map (atmosphere)
+  const accentPositions = [
+    {x:-12,z:-8,color:0xff3377}, {x:10,z:-16,color:0x33ccff},
+    {x:-20,z:12,color:0xffaa00}, {x:14,z:18,color:0xaa33ff},
+    {x:24,z:-8,color:0xff0066}, {x:-16,z:-22,color:0x33ff88},
+  ];
+  for(const ap of accentPositions){
+    const gl = new THREE.PointLight(ap.color, 0.6, 8);
+    gl.position.set(ap.x, 2, ap.z); addObj(gl);
+  }
 }
 
 // Build default map on load
@@ -3457,26 +3730,11 @@ function spawnBossZombie(w){
   showBanner('BOSS');
 }
 
+// playBossGrowl — audio setup happens later after sfxGainNode is created
 function playBossGrowl(){
-  const t = sfxCtx.currentTime;
-  const master = sfxCtx.createGain(); master.connect(sfxGainNode);
-  master.gain.setValueAtTime(0.6, t);
-  master.gain.linearRampToValueAtTime(0.8, t+0.4);
-  master.gain.exponentialRampToValueAtTime(0.001, t+1.5);
-  // Deep rumbling growl
-  const osc = sfxCtx.createOscillator(); osc.type='sawtooth';
-  osc.frequency.setValueAtTime(35, t);
-  osc.frequency.linearRampToValueAtTime(25, t+0.8);
-  osc.frequency.linearRampToValueAtTime(50, t+1.5);
-  osc.connect(master); osc.start(t); osc.stop(t+1.5);
-  // Sub-bass layer
-  const osc2 = sfxCtx.createOscillator(); osc2.type='sine';
-  osc2.frequency.setValueAtTime(28, t);
-  osc2.frequency.linearRampToValueAtTime(18, t+1.2);
-  const g2 = sfxCtx.createGain(); g2.connect(sfxGainNode);
-  g2.gain.setValueAtTime(0.4, t);
-  g2.gain.exponentialRampToValueAtTime(0.001, t+1.4);
-  osc2.connect(g2); osc2.start(t); osc2.stop(t+1.4);
+  if(window._bossRoarGain) window._bossRoarGain.gain.value = 1.0;
+  window._bossRoarAudio.currentTime = 0;
+  window._bossRoarAudio.play().catch(()=>{});
 }
 
 function updateBossHealthBar(){
@@ -5031,8 +5289,7 @@ document.querySelectorAll('.mbtn, .gbtn, .stab').forEach(btn => {
 const MAP_DISPLAY = {
   farm:    { icon: '🌾', name: 'THE FARM',              theme: 'Rural Horror',  desc: 'Abandoned farmland surrounded by crumbling ruins. Open fields with scattered obstacles.', tag: 'CLASSIC' },
   redline: { icon: '🏚️', name: 'REDLINE TRAILER PARK', theme: 'Desert Wasteland', desc: 'Desolate roadside trailer park in a scorched desert. Gas station, diner, junkyard, and more.', tag: '' },
-  blackwater: { icon: '⚓', name: 'BLACKWATER DOCKS', theme: 'Industrial Harbor', desc: 'Fog-choked harbor at night. Shipping containers, cranes, and rotting piers. Nowhere to hide.', tag: '' },
-  outpost: { icon: '🪖', name: 'OUTPOST OMEGA', theme: 'Military Base', desc: 'Bombed-out military outpost with watchtowers, tanks, sandbag checkpoints, and a fortified command building.', tag: 'NEW' }
+  carnival: { icon: '🎪', name: 'DARK CARNIVAL', theme: 'Abandoned Fairground', desc: 'A neon-lit nightmare. Flickering rides, shattered booths, and the horde closing in from every direction.', tag: 'NEW' },
 };
 
 function renderMapGrid(){
@@ -5340,6 +5597,15 @@ sfxGainNode.gain.value = getSfxGain(); // apply saved settings
 function resumeSfx(){ if(sfxCtx.state==='suspended') sfxCtx.resume(); }
 document.addEventListener('click', resumeSfx, {once:true});
 document.addEventListener('keydown', resumeSfx, {once:true});
+
+// Boss roar mp3 setup (must be after sfxGainNode)
+window._bossRoarAudio = new Audio('/zombie-roar.mp3');
+window._bossRoarGain = sfxCtx.createGain();
+window._bossRoarGain.connect(sfxGainNode);
+try {
+  const bossRoarSrc = sfxCtx.createMediaElementSource(window._bossRoarAudio);
+  bossRoarSrc.connect(window._bossRoarGain);
+} catch(e){ console.warn('bossRoar Web Audio routing failed', e); }
 
 function playSfx(type){
   const t = sfxCtx.currentTime;
