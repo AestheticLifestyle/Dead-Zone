@@ -547,11 +547,11 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
       <div class="pwrTimerBar"><div class="pwrTimerFill" style="background:#ff3344;width:100%"></div></div>
     </div>
   </div>
-  <div class="pwrTimer" id="timerKaboom">
-    <div class="pwrTimerIcon">💥</div>
+  <div class="pwrTimer" id="timerDoublePoints">
+    <div class="pwrTimerIcon">💰</div>
     <div>
-      <div class="pwrTimerLabel">Kaboom</div>
-      <div class="pwrTimerBar"><div class="pwrTimerFill" style="background:#ff8800;width:100%"></div></div>
+      <div class="pwrTimerLabel">Double Points</div>
+      <div class="pwrTimerBar"><div class="pwrTimerFill" style="background:#ffdd00;width:100%"></div></div>
     </div>
   </div>
 </div>
@@ -753,7 +753,7 @@ const powerupDrops = []; // active powerup orbs on the ground
 let nextPwrDropId = 0;   // unique ID counter for powerup drops (multiplayer sync)
 
 // Powerup active timers (seconds remaining, 0 = inactive)
-const pwrState = { instaKill:0, instaKillMax:20, kaboom:0, kaboomMax:15 };
+const pwrState = { instaKill:0, instaKillMax:20, doublePoints:0, doublePointsMax:30 };
 
 // ══════════════════════════════════════════════════
 // PERK MACHINE SYSTEM — definitions, state, config
@@ -3434,7 +3434,8 @@ function explosionBurst(p){
 const POWERUPS = [
   { id:'maxAmmo',   label:'MAX AMMO',   desc:'All weapons fully restocked', icon:'📦', color:0x00ddff, chance:0.04 },
   { id:'instaKill', label:'INSTA-KILL', desc:'One hit kills for 20 seconds', icon:'💀', color:0xff3344, chance:0.03 },
-  { id:'kaboom',    label:'KABOOM',     desc:'Kills explode for 15 seconds', icon:'💥', color:0xff8800, chance:0.03 },
+  { id:'nuke',      label:'NUKE',       desc:'Kills all zombies on the map', icon:'☢️', color:0xff8800, chance:0.02 },
+  { id:'doublePoints', label:'DOUBLE POINTS', desc:'2x credits for 30 seconds', icon:'💰', color:0xffdd00, chance:0.03 },
 ];
 
 function tryDropPowerup(deadPos){
@@ -3489,10 +3490,24 @@ function activatePowerup(pw){
     pwrState.instaKill = pwrState.instaKillMax;
     document.getElementById('timerInstaKill').classList.add('active');
     addFeed('💀 INSTA-KILL!');
-  } else if(pw.id==='kaboom'){
-    pwrState.kaboom = pwrState.kaboomMax;
-    document.getElementById('timerKaboom').classList.add('active');
-    addFeed('💥 KABOOM!');
+  } else if(pw.id==='nuke'){
+    // Instant: kill ALL zombies on the map right now
+    addFeed('☢️ NUKE!');
+    for(const z of zombies){
+      if(!z.alive) continue;
+      // Boss takes 30% of max HP as damage instead of instant kill
+      const nukeDmg = z.boss ? Math.floor(z.maxHp * 0.3) : 999999;
+      damageZombie(z, nukeDmg);
+    }
+    // Screen flash effect
+    const flash = document.getElementById('adsVignette');
+    flash.style.opacity = 1;
+    flash.style.background = 'radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,140,0,0.6))';
+    setTimeout(()=>{ flash.style.opacity = 0; flash.style.background = ''; }, 600);
+  } else if(pw.id==='doublePoints'){
+    pwrState.doublePoints = pwrState.doublePointsMax;
+    document.getElementById('timerDoublePoints').classList.add('active');
+    addFeed('💰 DOUBLE POINTS!');
   }
 }
 
@@ -3504,11 +3519,11 @@ function tickPowerups(dt){
     document.querySelector('#timerInstaKill .pwrTimerFill').style.width=pct+'%';
     if(pwrState.instaKill===0) document.getElementById('timerInstaKill').classList.remove('active');
   }
-  if(pwrState.kaboom>0){
-    pwrState.kaboom = Math.max(0, pwrState.kaboom-dt);
-    const pct = pwrState.kaboom/pwrState.kaboomMax*100;
-    document.querySelector('#timerKaboom .pwrTimerFill').style.width=pct+'%';
-    if(pwrState.kaboom===0) document.getElementById('timerKaboom').classList.remove('active');
+  if(pwrState.doublePoints>0){
+    pwrState.doublePoints = Math.max(0, pwrState.doublePoints-dt);
+    const pct = pwrState.doublePoints/pwrState.doublePointsMax*100;
+    document.querySelector('#timerDoublePoints .pwrTimerFill').style.width=pct+'%';
+    if(pwrState.doublePoints===0) document.getElementById('timerDoublePoints').classList.remove('active');
   }
 
   // Animate & collect orbs
@@ -3542,9 +3557,9 @@ function tickPowerups(dt){
 function resetPowerups(){
   for(const d of powerupDrops){ scene.remove(d.orb); scene.remove(d.glow); scene.remove(d.ring); }
   powerupDrops.length=0;
-  pwrState.instaKill=0; pwrState.kaboom=0;
+  pwrState.instaKill=0; pwrState.doublePoints=0;
   document.getElementById('timerInstaKill').classList.remove('active');
-  document.getElementById('timerKaboom').classList.remove('active');
+  document.getElementById('timerDoublePoints').classList.remove('active');
 }
 
 // ══════════════════════════════════════════════════
@@ -3769,10 +3784,12 @@ function damageZombie(z,dmg){
 
     // Boss / Elite / Normal multiplier for points
     const mult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
-    const pts=(100+wave*50)*mult; score+=pts;
-    const earn=Math.floor((60+Math.random()*40)*mult); credits+=earn;
+    const dpMult = pwrState.doublePoints > 0 ? 2 : 1;
+    const pts=(100+wave*50)*mult*dpMult; score+=pts;
+    const earn=Math.floor((60+Math.random()*40)*mult*dpMult); credits+=earn;
     const prefix = z.boss ? '☠ BOSS KILLED  ' : (z.elite ? '💀 ELITE KILLED  ' : '');
-    addFeed(prefix+'+'+pts+' pts  +'+earn+' credits');
+    const dpTag = dpMult > 1 ? ' (2x!)' : '';
+    addFeed(prefix+'+'+pts+' pts  +'+earn+' credits'+dpTag);
 
     // Boss death: hide health bar, show kill banner
     if(z.boss){
@@ -3783,14 +3800,6 @@ function damageZombie(z,dmg){
     }
 
     updateHUD();
-    // Kaboom: explode on death
-    if(pwrState.kaboom>0){
-      explosionBurst(deathPos.add(new THREE.Vector3(0,1,0)));
-      for(const z2 of zombies){
-        if(!z2.alive) continue;
-        if(deathPos.distanceTo(z2.mesh.position)<3.8) damageZombie(z2, 99999);
-      }
-    }
     // Random powerup drop — server-authoritative in multiplayer, local in solo
     if(mpMode==='solo'){
       tryDropPowerup(deathPos);
@@ -6693,10 +6702,12 @@ socket.on('zombie_update', data => {
       // Still count kills/score for the client display
       kills++; zombsLeft = Math.max(0, zombsLeft-1);
       const cMult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
-      const pts=(100+wave*50)*cMult; score+=pts;
-      const earn=Math.floor((60+Math.random()*40)*cMult); credits+=earn;
+      const dpMult2 = pwrState.doublePoints > 0 ? 2 : 1;
+      const pts=(100+wave*50)*cMult*dpMult2; score+=pts;
+      const earn=Math.floor((60+Math.random()*40)*cMult*dpMult2); credits+=earn;
       const cPrefix = z.boss ? '☠ BOSS KILLED  ' : (z.elite ? '💀 ELITE KILLED  ' : '');
-      addFeedSafe(cPrefix+'+'+pts+' pts  +'+earn+' credits');
+      const dpTag2 = dpMult2 > 1 ? ' (2x!)' : '';
+      addFeedSafe(cPrefix+'+'+pts+' pts  +'+earn+' credits'+dpTag2);
       // Boss death on client: hide health bar
       if(z.boss){ activeBoss=null; bossRoundActive=false; document.getElementById('bossBar').classList.remove('on'); }
       updateHUD();
