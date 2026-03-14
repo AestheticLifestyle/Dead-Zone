@@ -476,6 +476,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
   <div id="creds"><div id="credLbl">Credits</div><div id="credVal">500</div></div>
   <div id="ammoHud">
     <div id="ammoGunName">PISTOL [1]</div>
+    <div id="ammoAttach" style="font-size:8px;letter-spacing:2px;color:rgba(100,255,180,.5);margin-bottom:2px"></div>
     <div id="ammoNum">12</div>
     <div id="ammoRes">/ 60</div>
   </div>
@@ -613,6 +614,7 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
       <button class="stab active" data-tab="audio">Audio</button>
       <button class="stab" data-tab="controls">Controls</button>
       <button class="stab" data-tab="gameplay">Gameplay</button>
+      <button class="stab" data-tab="mods" style="color:#ff4444">Mods</button>
     </div>
 
     <!-- AUDIO TAB -->
@@ -647,6 +649,15 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
       <label class="srow"><span>Fullscreen</span><label class="toggle"><input type="checkbox" id="sFullscreen"><span class="tslider"></span></label></label>
     </div>
 
+    <!-- MODS TAB (dev/testing — does NOT save) -->
+    <div class="settings-body off" id="tab-mods">
+      <div style="font-size:9px;letter-spacing:2px;color:rgba(255,80,80,.6);margin-bottom:10px;text-align:center">DEV / TESTING — RESETS ON REFRESH</div>
+      <label class="srow"><span>God Mode</span><label class="toggle"><input type="checkbox" id="sGodMode"><span class="tslider"></span></label></label>
+      <label class="srow"><span>One Hit Kill</span><label class="toggle"><input type="checkbox" id="sOneHitKill"><span class="tslider"></span></label></label>
+      <label class="srow"><span>+50,000 Credits</span><button class="gbtn" id="sAddCredits" style="font-size:10px;padding:4px 14px;margin-left:auto">ADD</button></label>
+      <label class="srow"><span>Skip to Wave</span><input type="number" id="sSkipWave" min="1" max="999" value="7" style="width:50px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:3px 6px;text-align:center;font-size:12px"><button class="gbtn" id="sSkipWaveBtn" style="font-size:10px;padding:4px 14px;margin-left:8px">GO</button></label>
+    </div>
+
     <div class="settings-footer">
       <button class="gbtn" id="settingsBackBtn">&#8592;&nbsp; BACK</button>
     </div>
@@ -671,6 +682,10 @@ let gameRunning = false; // true once first game started
 
 let health=100, credits=500, score=0, kills=0, wave=0;
 let regenTimer=0; // seconds since last damage — regen starts after 5s
+
+// ── Mod / Dev-testing state (resets on refresh, NOT saved) ──
+let modGodMode = false;
+let modOneHitKill = false;
 let reloading=false, reloadT=0, shootCD=0;
 let rollT=0, rollCD=0, invT=0, walkT=0;
 
@@ -731,7 +746,7 @@ let headshotCount = 0;          // lifetime headshot counter (for stats/HUD)
 // ══════ BOSS ZOMBIE SYSTEM CONFIG ══════
 const BOSS_SPAWN_INTERVAL = 7;   // spawn boss every N rounds (7, 14, 21, ...)
 const BOSS_SCALE          = 2.0; // visual scale (2x normal size)
-const BOSS_HP_MULT        = 12;  // HP multiplier vs base HP (boss gets baseHp * 12)
+const BOSS_HP_MULT        = 18;  // HP multiplier vs base HP (boss gets baseHp * 18)
 const BOSS_SPEED_MULT     = 0.6; // speed multiplier (slower but heavy)
 const BOSS_MELEE_DMG      = 80;  // melee damage per hit
 const BOSS_ATK_CD         = 1.0; // attack cooldown in seconds
@@ -2466,6 +2481,26 @@ const PAP_UPGRADES = {
   autoshotgun: {name:"STREET SWEEPER", dmg:80, mag:24, res:144, color:0xcc44ff, rof:0.22, pellets:10},
 };
 
+// ── ATTACHMENTS (applied via second PaP on already-packed weapons) ──
+const ATTACH_COST = 2500;
+const ATTACHMENTS = [
+  { id:'extMag',    name:'EXTENDED MAG',  desc:'+50% magazine size',     icon:'🔋', stat:'mag',    mult:1.5  },
+  { id:'fastMags',  name:'FAST MAGS',     desc:'-30% reload time',       icon:'⚡', stat:'reload', mult:0.7  },
+  { id:'laser',     name:'LASER SIGHT',   desc:'-40% bullet spread',     icon:'🔴', stat:'spread', mult:0.6  },
+  { id:'rapidFire', name:'RAPID FIRE',    desc:'+20% fire rate',         icon:'🔥', stat:'rof',    mult:0.8  },
+  { id:'fmj',       name:'FMJ ROUNDS',    desc:'+25% damage',            icon:'💥', stat:'dmg',    mult:1.25 },
+];
+
+// Get the effective stat value for a gun, applying its attachment modifier
+function getGunStat(slot, stat){
+  let val = slot[stat] || 0;
+  if(slot.attachment && slot.attachment.stat === stat){
+    val *= slot.attachment.mult;
+    if(stat === 'mag') val = Math.floor(val); // magazine must be integer
+  }
+  return val;
+}
+
 let papBusy = false; // true while upgrading animation plays
 
 // (PaP 3D objects built dynamically by buildMap — papBase, papTop, papBeam, papLight, papParticles)
@@ -2538,7 +2573,30 @@ function packAPunch(){
   const slot = inventory[activeSlot];
   if(!slot){ addFeed('No weapon to upgrade!'); return; }
   if(slot.melee){ addFeed("Can't upgrade melee weapons!"); return; }
-  if(slot.packed){ addFeed(slot.name+' is already Pack-a-Punched!'); return; }
+  // Already PaP'd — roll a random attachment instead
+  if(slot.packed){
+    if(credits < ATTACH_COST){ addFeed('Need '+ATTACH_COST+' credits for attachment!'); return; }
+    credits -= ATTACH_COST;
+    papBusy = true;
+    playPaPSfx();
+    papLight.intensity = 8;
+    papTop.material.color.setHex(0x44ffaa);
+    setTimeout(()=>{
+      const attach = ATTACHMENTS[Math.floor(Math.random()*ATTACHMENTS.length)];
+      slot.attachment = attach;
+      // If ext mag, refill to new mag size
+      if(attach.stat === 'mag') slot.ammo = Math.floor(slot.mag * attach.mult);
+      updateGunVisual(); updateHUD();
+      document.getElementById('papTxt').textContent = attach.icon + ' ' + attach.name;
+      document.getElementById('papSub').textContent = attach.desc;
+      document.getElementById('papFlash').classList.add('on');
+      setTimeout(()=>{ document.getElementById('papFlash').classList.remove('on'); document.getElementById('papSub').textContent='WEAPON UPGRADED'; }, 2800);
+      addFeed(attach.icon+' '+attach.name+' applied to '+slot.name+'!');
+      papBusy = false;
+      papTop.material.color.setHex(0x8800ff);
+    }, 3000);
+    return;
+  }
   const upg = PAP_UPGRADES[slot.key];
   if(!upg){ addFeed("This weapon can't be upgraded!"); return; }
   if(credits < PAP_COST){ addFeed('Need '+PAP_COST+' credits!'); return; }
@@ -3092,6 +3150,7 @@ function updateHUD(){
   document.getElementById('credVal').textContent=credits.toLocaleString();
   const slotLabel = knifeActive ? '[F]' : '['+(activeSlot+1)+']';
   document.getElementById('ammoGunName').textContent=g.name+' '+slotLabel;
+  document.getElementById('ammoAttach').textContent = g.attachment ? g.attachment.icon+' '+g.attachment.name : '';
   if(g.melee){
     document.getElementById('ammoNum').textContent='∞';
     document.getElementById('ammoRes').textContent='melee';
@@ -3153,7 +3212,7 @@ function updateBuyPrompt(){
     const slot = knifeActive ? null : inventory[activeSlot];
     if(papBusy) txt='⚡ UPGRADING...';
     else if(!slot || slot.melee) txt='Pack-a-Punch — equip a gun first!';
-    else if(slot.packed) txt=slot.name+' — already upgraded!';
+    else if(slot.packed) txt='Apply Attachment to '+slot.name+' — '+ATTACH_COST+' credits'+(slot.attachment ? ' (current: '+slot.attachment.name+')' : '');
     else if(!PAP_UPGRADES[slot.key]) txt=slot.name+" — can't be upgraded";
     else txt='Pack-a-Punch '+slot.name+' — '+PAP_COST+' credits';
   } else if(pos.distanceTo(MB_POS_VEC)<3.5){
@@ -3219,6 +3278,11 @@ function headshotBurst(p){
 // ══════════════════════════════════════════════════
 function spawnBullet(burstCont){
   const g=currentGun();
+  // Attachment stat helpers
+  const am = g.attachment; // may be undefined
+  const rofEff  = g.rof    * (am && am.stat==='rof'    ? am.mult : 1);
+  const dmgEff  = g.dmg    * (am && am.stat==='dmg'    ? am.mult : 1);
+  const sprdEff = (g.spread||0) * (am && am.stat==='spread' ? am.mult : 1);
   if(burstCont){
     // Burst continuation — skip cooldown check, just fire
     if(g.ammo<=0){ burstQueue=0; return; }
@@ -3231,11 +3295,11 @@ function spawnBullet(burstCont){
     g.ammo--;
     // Burst weapon: set cooldown to full rof, queue remaining burst rounds
     if(g.burst && g.burst>1){
-      shootCD=g.rof * getFireRateMult();
+      shootCD=rofEff * getFireRateMult();
       burstQueue=g.burst-1;
       burstCD=(g.burstDelay||0.06) * getFireRateMult();
     } else {
-      shootCD=g.rof * getFireRateMult();
+      shootCD=rofEff * getFireRateMult();
     }
     updateHUD(); // DOUBLE TAP EFFECT
   }
@@ -3265,12 +3329,12 @@ function spawnBullet(burstCont){
       const dot=fwd.dot(toZ.clone().normalize());
       if(dot<0.3) continue;
       bloodBurst(z.mesh.position.clone().add(new THREE.Vector3(0,1,0)),0x880000);
-      dmgPop(z.mesh.position.clone().add(new THREE.Vector3(0,2,0)), g.dmg, false);
+      dmgPop(z.mesh.position.clone().add(new THREE.Vector3(0,2,0)), dmgEff, false);
       if(mpMode==='client'){
         const zIdx=zombies.indexOf(z);
-        socket.emit('client_zombie_hit',{indices:[zIdx],dmg:g.dmg,explosive:false});
+        socket.emit('client_zombie_hit',{indices:[zIdx],dmg:dmgEff,explosive:false});
       } else {
-        damageZombie(z, g.dmg);
+        damageZombie(z, dmgEff);
       }
       hit=true;
     }
@@ -3332,10 +3396,10 @@ function spawnBullet(burstCont){
   for(let p=0;p<g.pellets;p++){
     const dir = baseDir.clone();
     const spreadMult = 1 - adsLerp * 0.6;
-    if(g.spread > 0){
-      dir.x += (Math.random()-.5) * g.spread * 2 * spreadMult;
-      dir.z += (Math.random()-.5) * g.spread * 2 * spreadMult;
-      dir.y += (Math.random()-.5) * g.spread * spreadMult;
+    if(sprdEff > 0){
+      dir.x += (Math.random()-.5) * sprdEff * 2 * spreadMult;
+      dir.z += (Math.random()-.5) * sprdEff * 2 * spreadMult;
+      dir.y += (Math.random()-.5) * sprdEff * spreadMult;
       dir.normalize();
     }
 
@@ -3375,7 +3439,7 @@ function spawnBullet(burstCont){
       hitOrigin: camOrigin.clone(), // where the hit-detection ray starts (camera)
       hitDir: dir.clone(),          // true center-screen direction for collision
       hitDist: 0,                   // how far the hit ray has traveled
-      life, dmg:g.dmg, spd:g.bulletSpd,
+      life, dmg:dmgEff, spd:g.bulletSpd,
       explosive:!!g.explosive, fire:!!g.fire,
       pierce, pierced:0, expRadius,
       packed:!!g.packed, gunKey:g.key||''
@@ -3767,10 +3831,14 @@ function updateBossHealthBar(){
 }
 
 function damageZombie(z,dmg){
+  // Mod: One Hit Kill (bosses take 33% maxHp per hit instead of instant)
+  if(modOneHitKill){
+    dmg = z.boss ? Math.floor(z.maxHp * 0.33) : 99999;
+  }
   // Insta-kill overrides damage (bosses resist insta-kill — take 20% maxHp instead)
   let actualDmg = dmg;
   if(pwrState.instaKill>0){
-    actualDmg = z.boss ? Math.floor(z.maxHp * 0.2) : 99999;
+    actualDmg = z.boss ? Math.floor(z.maxHp * 0.1) : 99999;
   }
   z.hp -= actualDmg;
 
@@ -4357,10 +4425,13 @@ function tick(dt,ts){
   // Reload
   if(reloading){
     reloadT+=dt;
-    const effectiveReload = g.reload * getReloadMult(); // SPEED COLA EFFECT
+    const reloadAttachMult = (g.attachment && g.attachment.stat==='reload') ? g.attachment.mult : 1;
+    const effectiveReload = g.reload * getReloadMult() * reloadAttachMult; // SPEED COLA + ATTACHMENT
     document.getElementById('rlFill').style.width=(reloadT/effectiveReload*100)+'%';
     if(reloadT>=effectiveReload){
-      const give=Math.min(g.mag-g.ammo,g.reserve);
+      const magAttachMult = (g.attachment && g.attachment.stat==='mag') ? g.attachment.mult : 1;
+      const effMag = Math.floor(g.mag * magAttachMult);
+      const give=Math.min(effMag-g.ammo,g.reserve);
       g.ammo+=give; g.reserve-=give; reloading=false;
       document.getElementById('rlWrap').classList.remove('on'); updateHUD();
     }
@@ -4768,7 +4839,7 @@ function tick(dt,ts){
         z.atkT-=dt;
         if(z.atkT<=0){
           z.atkT=z.atkCD;
-          if(invT<=0){
+          if(invT<=0 && !modGodMode){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
@@ -4889,7 +4960,7 @@ function tick(dt,ts){
         // Check if the closest target is the local (host) player
         if(closestPos === pos){
           // FIX: Skip melee damage if host is downed — downed players die only from bleedout timer
-          if(!downed && invT<=0){
+          if(!downed && invT<=0 && !modGodMode){
             health=Math.max(0,health-(z.meleeDmg||10));
             regenTimer=0;
             hitFlash(); updateHUD();
@@ -5586,6 +5657,31 @@ document.addEventListener('fullscreenchange', ()=>{
 });
 document.addEventListener('webkitfullscreenchange', ()=>{
   document.getElementById('sFullscreen').checked = !!document.webkitFullscreenElement;
+});
+
+// ── MOD / DEV-TESTING CONTROLS ──
+document.getElementById('sGodMode').addEventListener('change', e=>{
+  modGodMode = e.target.checked;
+});
+document.getElementById('sOneHitKill').addEventListener('change', e=>{
+  modOneHitKill = e.target.checked;
+});
+document.getElementById('sAddCredits').addEventListener('click', ()=>{
+  credits += 50000;
+  updateHUD();
+  addFeed('🛠 +50,000 credits (dev)');
+});
+document.getElementById('sSkipWaveBtn').addEventListener('click', ()=>{
+  const target = parseInt(document.getElementById('sSkipWave').value) || 1;
+  if(!alive || !gameRunning) return;
+  // Kill all living zombies instantly (silent)
+  for(const z of zombies){
+    if(z.alive){ z.alive=false; scene.remove(z.mesh); }
+  }
+  zombies.length=0; zombsLeft=0; waveActive=false; waveDelay=0;
+  // Start the target wave
+  startWave(target);
+  addFeed('🛠 Skipped to wave '+target+' (dev)');
 });
 
 // Keybind rebinding
