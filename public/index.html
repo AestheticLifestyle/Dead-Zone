@@ -902,13 +902,13 @@ const MAPS = {
     desc:'A neon-lit nightmare. Flickering lights, shattered rides, and nowhere to run when the horde arrives.',
     tag:'NEW',
     arena: 40,
-    groundColor: 0x0e0a10,
-    fogColor: 0x0a0610, fogDensity: 0.024,
-    clearColor: 0x0a0610,
-    ambientColor: 0x2a1535, ambientIntensity: 1.4,
-    sunColor: 0x6655aa, sunIntensity: 0.5,
+    groundColor: 0x1c1424,
+    fogColor: 0x120e18, fogDensity: 0.020,
+    clearColor: 0x120e18,
+    ambientColor: 0x3a2545, ambientIntensity: 1.8,
+    sunColor: 0x8899cc, sunIntensity: 0.9,
     sunPos: {x:-10,y:30,z:10},
-    gridColor1: 0x1a0e1e, gridColor2: 0x120a14,
+    gridColor1: 0x221828, gridColor2: 0x1a1220,
     perimeterCount: 0, perimeterColor: 0x1a1a1a,
     perimeterRadius: 41, perimeterSpread: 3,
     obstacles: [
@@ -947,7 +947,7 @@ const MAPS = {
       {x:-8,z:24,w:1,h:1.2,d:1},    // barrel
       {x:12,z:-18,w:1.2,h:1,d:1.2}, // popcorn cart
     ],
-    obstacleColors: [0x2a1528, 0x1e1020, 0x3a2038, 0x141018],
+    obstacleColors: [0x3a2538, 0x2e1e30, 0x4a3048, 0x241828],
     mysteryBoxPos: {x:-18,y:0,z:-6},
     papPos: {x:20,y:0,z:4},
     playerSpawns: [{x:2,y:0,z:24},{x:-2,y:0,z:24},{x:2,y:0,z:20},{x:-2,y:0,z:20}],
@@ -2112,7 +2112,7 @@ function buildCarnivalDecorations(){
   // ── Asphalt ground surface ──
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(ARENA*2, ARENA*2),
-    new THREE.MeshLambertMaterial({color:0x141018})
+    new THREE.MeshLambertMaterial({color:0x1c1424})
   );
   ground.rotation.x=-Math.PI/2; ground.position.y=0.01; addObj(ground);
 
@@ -2173,10 +2173,13 @@ function buildCarnivalDecorations(){
   }
 
   // Neon lights on the wheel rim
-  const wheelGlow1 = new THREE.PointLight(0xff33aa, 2.5, 18);
+  const wheelGlow1 = new THREE.PointLight(0xff33aa, 4, 28);
   wheelGlow1.position.set(0, 18, 0); addObj(wheelGlow1);
-  const wheelGlow2 = new THREE.PointLight(0x6633ff, 1.5, 14);
+  const wheelGlow2 = new THREE.PointLight(0x6633ff, 3, 22);
   wheelGlow2.position.set(0, 5, 0); addObj(wheelGlow2);
+  // Extra ground-level glow from ferris wheel
+  const wheelGlow3 = new THREE.PointLight(0xcc44aa, 1.5, 16);
+  wheelGlow3.position.set(0, 1, 0); addObj(wheelGlow3);
 
   // ═══════════════════════════════
   // 2. MIDWAY STRIP (booth details)
@@ -2202,7 +2205,7 @@ function buildCarnivalDecorations(){
     counter.position.set(bp.x, 1.2, bp.z + 1.6);
     addObj(counter);
     // Neon strip light on awning
-    const stripLight = new THREE.PointLight(boothColors[b], 0.8, 6);
+    const stripLight = new THREE.PointLight(boothColors[b], 1.8, 10);
     stripLight.position.set(bp.x, 2.8, bp.z + 2);
     addObj(stripLight);
   }
@@ -2215,7 +2218,7 @@ function buildCarnivalDecorations(){
     );
     bulb.position.set(0, 3.5, z);
     addObj(bulb);
-    const bulbLight = new THREE.PointLight(z%2===0 ? 0xffcc44 : 0xff4488, 0.3, 4);
+    const bulbLight = new THREE.PointLight(z%2===0 ? 0xffcc44 : 0xff4488, 0.8, 7);
     bulbLight.position.set(0, 3.5, z);
     addObj(bulbLight);
   }
@@ -2252,8 +2255,11 @@ function buildCarnivalDecorations(){
     new THREE.MeshBasicMaterial({color:0xff6600, transparent:true, opacity:0.7})
   );
   bumperSign.position.set(-18, 3.5, -4.5); addObj(bumperSign);
-  const bumperLight = new THREE.PointLight(0xff6600, 1.5, 10);
+  const bumperLight = new THREE.PointLight(0xff6600, 3, 16);
   bumperLight.position.set(-18, 3.5, -4.5); addObj(bumperLight);
+  // Extra ground glow for bumper area
+  const bumperGlow = new THREE.PointLight(0xff8833, 1.2, 12);
+  bumperGlow.position.set(-18, 0.5, 0); addObj(bumperGlow);
 
   // ═══════════════════════════════
   // 4. FUN-HOUSE ZONE (east)
@@ -2273,10 +2279,13 @@ function buildCarnivalDecorations(){
     pillar.position.set(sx, 2.25, -1); pillar.castShadow=true; addObj(pillar);
   }
   // Fun-house glow (eerie)
-  const funLight1 = new THREE.PointLight(0xff0066, 2, 12);
+  const funLight1 = new THREE.PointLight(0xff0066, 3.5, 18);
   funLight1.position.set(16, 3, -4); addObj(funLight1);
-  const funLight2 = new THREE.PointLight(0x6600ff, 1.5, 10);
+  const funLight2 = new THREE.PointLight(0x6600ff, 3, 16);
   funLight2.position.set(20, 2, 4); addObj(funLight2);
+  // Ground-level pink glow spill
+  const funGlow = new THREE.PointLight(0xcc3388, 1.5, 12);
+  funGlow.position.set(18, 0.5, 0); addObj(funGlow);
 
   // Mirror panels (angled reflective-looking panels in hall-of-mirrors)
   for(let m=0; m<4; m++){
@@ -2315,8 +2324,10 @@ function buildCarnivalDecorations(){
     addObj(pole);
   }
   // Carousel lights
-  const carLight = new THREE.PointLight(0xffaa33, 1.2, 10);
+  const carLight = new THREE.PointLight(0xffaa33, 2.5, 14);
   carLight.position.set(-12, 4, 16); addObj(carLight);
+  const carGlow = new THREE.PointLight(0xff6644, 1.2, 10);
+  carGlow.position.set(-12, 0.5, 16); addObj(carGlow);
 
   // ═══════════════════════════════
   // 6. ENTRANCE GATE (south)
@@ -2333,8 +2344,10 @@ function buildCarnivalDecorations(){
     new THREE.MeshBasicMaterial({color:0xff44aa, transparent:true, opacity:0.9})
   );
   gateSign.position.set(0, 5.5, 28); addObj(gateSign);
-  const gateGlow = new THREE.PointLight(0xff44aa, 2.5, 14);
+  const gateGlow = new THREE.PointLight(0xff44aa, 4, 20);
   gateGlow.position.set(0, 5.5, 28); addObj(gateGlow);
+  const gateFloor = new THREE.PointLight(0xff88cc, 1.5, 12);
+  gateFloor.position.set(0, 0.5, 26); addObj(gateFloor);
   // Ticket booth (small, next to gate)
   const ticketBooth = new THREE.Mesh(
     new THREE.BoxGeometry(1.5, 2.2, 1.5),
@@ -2357,7 +2370,7 @@ function buildCarnivalDecorations(){
   );
   exhaust.position.set(-8, 2.8, -28); addObj(exhaust);
   // Work light (harsh, practical)
-  const workLight = new THREE.PointLight(0xffdd88, 1.5, 12);
+  const workLight = new THREE.PointLight(0xffdd88, 3, 18);
   workLight.position.set(0, 3, -30); addObj(workLight);
   const workBulb = new THREE.Mesh(
     new THREE.SphereGeometry(0.12, 6, 6),
@@ -2432,7 +2445,7 @@ function buildCarnivalDecorations(){
     {x:24,z:-8,color:0xff0066}, {x:-16,z:-22,color:0x33ff88},
   ];
   for(const ap of accentPositions){
-    const gl = new THREE.PointLight(ap.color, 0.6, 8);
+    const gl = new THREE.PointLight(ap.color, 1.5, 14);
     gl.position.set(ap.x, 2, ap.z); addObj(gl);
   }
 }
