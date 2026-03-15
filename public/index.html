@@ -3684,7 +3684,12 @@ function tryDropPowerup(deadPos){
   // Roll each powerup independently
   for(const pw of POWERUPS){
     if(Math.random()>pw.chance) continue;
-    spawnPowerupOrb(pw, deadPos.clone());
+    const dropId = nextPwrDropId++;
+    spawnPowerupOrb(pw, deadPos.clone(), dropId);
+    // In multiplayer (host only): broadcast spawn to all clients so they see the orb too
+    if(mpMode!=='solo' && socket && socket.connected){
+      socket.emit('powerup_host_spawn', { dropId, powerupId: pw.id, x: deadPos.x, z: deadPos.z });
+    }
     break; // max one drop per kill
   }
 }
@@ -4057,11 +4062,10 @@ function damageZombie(z,dmg){
     }
 
     updateHUD();
-    // Random powerup drop — server-authoritative in multiplayer, local in solo
-    if(mpMode==='solo'){
+    // Random powerup drop — host rolls locally in all modes (solo + multiplayer)
+    // In multiplayer, tryDropPowerup broadcasts the spawn to all clients
+    if(mpMode !== 'client'){
       tryDropPowerup(deathPos);
-    } else if(socket && socket.connected){
-      socket.emit('zombie_killed', { x: deathPos.x, z: deathPos.z });
     }
   }
 }
