@@ -816,37 +816,53 @@ let mapSceneObjects = []; // track all map objects for cleanup
 
 const MAPS = {
   farm: {
-    id:'farm', name:'Farm', icon:'🌾',
+    id:'farm', name:'The Farm', icon:'🌾',
     theme:'Abandoned rural farmstead',
-    desc:'Open fields, scattered ruins, and dark corners. The original battlefield.',
-    tag:'ORIGINAL',
-    arena: 34,
-    groundColor: 0x120905,
-    fogColor: 0x110203, fogDensity: 0.032,
-    clearColor: 0x110203,
-    ambientColor: 0x331010, ambientIntensity: 1.5,
-    sunColor: 0x5577aa, sunIntensity: 0.9,
-    sunPos: {x:-15,y:25,z:-10},
-    gridColor1: 0x2a0808, gridColor2: 0x180404,
-    perimeterCount: 38, perimeterColor: 0x1a0808,
-    perimeterRadius: 35, perimeterSpread: 5,
+    desc:'A moonlit farmstead with a cornfield, red barn, and old farmhouse. Survive the harvest.',
+    tag:'CLASSIC',
+    arena: 46,
+    groundColor: 0x1a2a0a,       // dark grass green
+    fogColor: 0x0a1008, fogDensity: 0.018,
+    clearColor: 0x0a1008,
+    ambientColor: 0x223318, ambientIntensity: 1.6,
+    sunColor: 0x7799bb, sunIntensity: 0.85,   // cool moonlight
+    sunPos: {x:-22,y:32,z:-14},
+    gridColor1: 0x1a2a0a, gridColor2: 0x142208,   // subtle grass grid
+    perimeterCount: 0, perimeterColor: 0x1a2a0a,   // fences replace perimeter
+    perimeterRadius: 46, perimeterSpread: 3,
     obstacles: [
-      {x:-10,z:-6,w:3,h:2,d:3},{x:10,z:5,w:2,h:3,d:2},
-      {x:-5,z:14,w:5,h:2,d:2},{x:15,z:-10,w:2,h:4,d:2},
-      {x:-14,z:4,w:3,h:2,d:5},{x:8,z:-16,w:5,h:1,d:3},
-      {x:17,z:12,w:2,h:3,d:2},{x:-17,z:-14,w:2,h:5,d:2},
-      {x:0,z:17,w:3,h:2,d:3},{x:-19,z:0,w:2,h:2,d:4},
+      // ── Farmhouse (north) ──
+      {x:0,  z:22, w:11, h:5.5, d:9},    // farmhouse main body
+      {x:0,  z:17, w:11, h:1.2, d:3},    // front porch floor
+      // ── Red Barn (southwest) ──
+      {x:-22,z:-18,w:11, h:5.5, d:9},    // barn body
+      {x:-27,z:-18,w:2.5,h:8.5, d:2.5},  // silo
+      // ── Cornfield hay bales (east zone cover) ──
+      {x:18, z:4,  w:2,  h:1.2,d:2},
+      {x:22, z:-8, w:2,  h:1.2,d:2},
+      {x:26, z:0,  w:2,  h:1.2,d:2},
+      {x:16, z:-14,w:2,  h:1.2,d:2},
+      // ── Road-side objects ──
+      {x:-6, z:-6, w:4,  h:1.5,d:2.5},   // tractor
+      {x:-6, z:-24,w:5,  h:1.8,d:2.5},   // pickup truck
+      // ── Landmarks ──
+      {x:24, z:20, w:2.5,h:3.5, d:2.5},  // water tower base
+      {x:-24,z:16, w:3.5,h:1.8, d:3.5},  // chicken coop
+      {x:-24,z:6,  w:2.5,h:6,   d:2.5},  // windmill base
+      // ── Scattered hay/cover ──
+      {x:4,  z:-16,w:2.5,h:1.2,d:2.5},
+      {x:-14,z:4,  w:2,  h:1.2,d:2},
+      {x:8,  z:8,  w:2,  h:1.2,d:2},
     ],
-    obstacleColors: [0x2a1508, 0x1e1010],
-    mysteryBoxPos: {x:-8,y:0,z:-8},
-    papPos: {x:12,y:0,z:12},
-    playerSpawns: [{x:4,y:0,z:4},{x:-4,y:0,z:4},{x:4,y:0,z:-4},{x:-4,y:0,z:-4}],
+    obstacleColors: [0x3a2a14, 0x2a1e0e, 0x44301a],
+    mysteryBoxPos: {x:3,y:0,z:17},          // on the farmhouse porch
+    papPos: {x:-22,y:0,z:-22},              // inside the barn (back wall)
+    playerSpawns: [{x:-2,y:0,z:0},{x:2,y:0,z:0},{x:-2,y:0,z:-4},{x:2,y:0,z:-4}],
     soloSpawn: {x:0,y:0,z:0},
-    zombieSpawnRadius: 33, zombieSpawnSpread: 4,
-    // No extra decorations for farm (uses default perimeter + obstacles)
-    decorations: [],
-    // SINGLE PERK MACHINE — near PaP corner
-    perkMachinePos: {x:14,y:0,z:-8}, perkMachineRot: Math.PI,
+    zombieSpawnRadius: 44, zombieSpawnSpread: 5,
+    decorations: 'farm',
+    // PERK MACHINE — by the water tower (northeast)
+    perkMachinePos: {x:24,y:0,z:18}, perkMachineRot: Math.PI*0.75,
   },
   redline: {
     id:'redline', name:'Redline Trailer Park', icon:'🏚️',
@@ -1115,6 +1131,7 @@ function buildMap(mapId){
   buildPerkMachines(cfg);
 
   // Map-specific decorations
+  if(cfg.decorations === 'farm') buildFarmDecorations();
   if(cfg.decorations === 'redline') buildRedlineDecorations();
   if(cfg.decorations === 'carnival') buildCarnivalDecorations();
 
@@ -1223,6 +1240,447 @@ function animatePerkMachines(ts){
   pm.light.intensity = 2.5 + Math.sin(t * 2.5) * 1.2;
   pm.light2.intensity = 1.0 + Math.sin(t * 3.5 + 1.0) * 0.5;
   pm.beam.rotation.y += 0.006;
+}
+
+// ══════════════════════════════════════════════════
+// THE FARM — custom decorations
+// ══════════════════════════════════════════════════
+function buildFarmDecorations(){
+  const addObj = (m) => { scene.add(m); mapSceneObjects.push(m); };
+  const mkBox = (w,h,d,col) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshLambertMaterial({color:col}));
+    m.castShadow=true; m.receiveShadow=true; return m;
+  };
+
+  // ══════════════════════════════════════════
+  // FARMHOUSE — two-story wooden house with porch (north)
+  // ══════════════════════════════════════════
+  const hx=0, hz=22;
+
+  // Main walls (dark wood)
+  const walls = mkBox(11,5.5,9, 0x4a3520);
+  walls.position.set(hx, 2.75, hz); addObj(walls);
+
+  // Second floor accent
+  const floor2 = mkBox(11.1, 0.15, 9.1, 0x3a2818);
+  floor2.position.set(hx, 3.0, hz); addObj(floor2);
+
+  // Roof — peaked
+  const roofL = mkBox(6.5, 0.3, 10, 0x2a1a0a);
+  roofL.position.set(hx-2.5, 6.2, hz); roofL.rotation.z = 0.42; addObj(roofL);
+  const roofR = mkBox(6.5, 0.3, 10, 0x2a1a0a);
+  roofR.position.set(hx+2.5, 6.2, hz); roofR.rotation.z = -0.42; addObj(roofR);
+  const ridge = mkBox(0.4, 0.4, 10.2, 0x221508);
+  ridge.position.set(hx, 7.0, hz); addObj(ridge);
+
+  // Front porch
+  const porch = mkBox(11, 0.2, 3, 0x3a2a18);
+  porch.position.set(hx, 0.15, hz-6); addObj(porch);
+  const porchRoof = mkBox(11.5, 0.2, 3.5, 0x2a1a0a);
+  porchRoof.position.set(hx, 3.4, hz-6); addObj(porchRoof);
+  for(const px2 of [-5, -1.7, 1.7, 5]){
+    const post = mkBox(0.2, 3.2, 0.2, 0x5a4a30);
+    post.position.set(hx+px2, 1.7, hz-7.3); addObj(post);
+  }
+
+  // Windows
+  const winMat = new THREE.MeshBasicMaterial({color:0x1a2a44, transparent:true, opacity:0.6});
+  for(const wx of [-3.5, 3.5]){
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(1.3,1.1,0.1), winMat);
+    w1.position.set(hx+wx, 1.8, hz-4.51); addObj(w1);
+    const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.9,0.1), winMat);
+    w2.position.set(hx+wx, 4.2, hz-4.51); addObj(w2);
+  }
+  // Side windows
+  for(const sz2 of [-2, 2]){
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(0.1,1.0,1.2), winMat);
+    sw.position.set(hx+5.51, 2.0, hz+sz2); addObj(sw);
+    const sw2 = new THREE.Mesh(new THREE.BoxGeometry(0.1,1.0,1.2), winMat);
+    sw2.position.set(hx-5.51, 2.0, hz+sz2); addObj(sw2);
+  }
+
+  // Warm light from farmhouse
+  const houseLight = new THREE.PointLight(0xffaa44, 1.5, 14);
+  houseLight.position.set(hx, 2.5, hz-5.5); addObj(houseLight);
+  const houseLightInner = new THREE.PointLight(0xffcc66, 0.6, 8);
+  houseLightInner.position.set(hx, 4.0, hz); addObj(houseLightInner);
+
+  // Door
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.1,2.2,0.12), new THREE.MeshLambertMaterial({color:0x2a1808}));
+  door.position.set(hx, 1.1, hz-4.52); addObj(door);
+
+  // Chimney
+  const chimney = mkBox(1.2, 3, 1.2, 0x553322);
+  chimney.position.set(hx+3.5, 7.5, hz+2); addObj(chimney);
+
+  // ══════════════════════════════════════════
+  // RED BARN + SILO (southwest)
+  // ══════════════════════════════════════════
+  const bx=-22, bz=-18;
+
+  // Barn walls
+  const barnWalls = mkBox(11, 5.5, 9, 0x8b2020);
+  barnWalls.position.set(bx, 2.75, bz); addObj(barnWalls);
+
+  // Barn roof (peaked)
+  const barnRoofL = mkBox(6.8, 0.25, 10, 0x3a1a0a);
+  barnRoofL.position.set(bx-2.5, 6.0, bz); barnRoofL.rotation.z = 0.40; addObj(barnRoofL);
+  const barnRoofR = mkBox(6.8, 0.25, 10, 0x3a1a0a);
+  barnRoofR.position.set(bx+2.5, 6.0, bz); barnRoofR.rotation.z = -0.40; addObj(barnRoofR);
+  const barnRidge = mkBox(0.35, 0.35, 10.2, 0x2a0e08);
+  barnRidge.position.set(bx, 6.7, bz); addObj(barnRidge);
+
+  // Barn door opening (dark)
+  const barnDoor = new THREE.Mesh(new THREE.BoxGeometry(4.0, 4.5, 0.12),
+    new THREE.MeshLambertMaterial({color:0x1a0808}));
+  barnDoor.position.set(bx, 2.25, bz+4.52); addObj(barnDoor);
+
+  // Barn interior light (dim warm)
+  const barnLight = new THREE.PointLight(0xff8844, 1.0, 12);
+  barnLight.position.set(bx, 3.5, bz); addObj(barnLight);
+
+  // White X on barn front
+  const xBar1 = mkBox(0.15, 6, 0.08, 0xccccaa);
+  xBar1.position.set(bx, 2.75, bz+4.55); xBar1.rotation.z=0.55; addObj(xBar1);
+  const xBar2 = mkBox(0.15, 6, 0.08, 0xccccaa);
+  xBar2.position.set(bx, 2.75, bz+4.55); xBar2.rotation.z=-0.55; addObj(xBar2);
+
+  // Hay bales inside barn
+  for(const hbx of [-3, 0, 3]){
+    const hb = mkBox(2, 1.2, 1.5, 0xccaa44);
+    hb.position.set(bx+hbx, 0.6, bz-2.5); addObj(hb);
+  }
+  // Stacked bales
+  const hbStack = mkBox(2, 1.2, 1.5, 0xccaa44);
+  hbStack.position.set(bx-3, 1.8, bz-2.5); addObj(hbStack);
+
+  // ── Silo ──
+  const sx=-27, sz=-18;
+  for(let y=0; y<9; y++){
+    const seg = mkBox(2.2, 1.05, 2.2, 0x888888);
+    seg.position.set(sx, 0.5+y*1.0, sz);
+    seg.rotation.y = y*0.08;
+    addObj(seg);
+  }
+  const siloCap = mkBox(2.5, 0.6, 2.5, 0x666666);
+  siloCap.position.set(sx, 9.5, sz); addObj(siloCap);
+  const siloTip = mkBox(0.9, 1.2, 0.9, 0x777777);
+  siloTip.position.set(sx, 10.3, sz); addObj(siloTip);
+
+  // ══════════════════════════════════════════
+  // CORNFIELD — massive field filling the east side
+  // ══════════════════════════════════════════
+  const cornColor = 0x5a7a20;
+  const cornTop = 0xaaaa30;
+  // Corn spans x:10 to x:32, z:-22 to z:14 — huge field
+  for(let row=10; row<=32; row+=2.0){
+    for(let col=-22; col<=14; col+=1.8){
+      const cx2 = row + (Math.random()-0.5)*0.7;
+      const cz = col + (Math.random()-0.5)*0.7;
+      const h2 = 2.4 + Math.random()*0.8;
+      // Stalk
+      const stalk = mkBox(0.12, h2, 0.12, cornColor);
+      stalk.position.set(cx2, h2/2, cz);
+      stalk.rotation.y = Math.random()*Math.PI;
+      addObj(stalk);
+      // Leaves
+      for(const lr of [-0.3, 0.3]){
+        const leaf = new THREE.Mesh(
+          new THREE.BoxGeometry(0.65, 0.08, 0.04),
+          new THREE.MeshLambertMaterial({color:cornColor})
+        );
+        leaf.position.set(cx2+lr*0.3, h2*0.6, cz);
+        leaf.rotation.z = lr > 0 ? 0.5 : -0.5;
+        leaf.rotation.y = Math.random()*Math.PI;
+        addObj(leaf);
+      }
+      // Golden top tassel
+      const tassel = mkBox(0.2, 0.4, 0.2, cornTop);
+      tassel.position.set(cx2, h2+0.2, cz); addObj(tassel);
+    }
+  }
+
+  // ══════════════════════════════════════════
+  // DIRT ROAD — runs north-south through center-west
+  // ══════════════════════════════════════════
+  const road = new THREE.Mesh(
+    new THREE.PlaneGeometry(7, ARENA*2),
+    new THREE.MeshLambertMaterial({color:0x3a2a18})
+  );
+  road.rotation.x = -Math.PI/2;
+  road.position.set(-6, 0.01, 0);
+  addObj(road);
+
+  // Dirt road edge ruts
+  for(const ex of [-3.5, 3.5]){
+    const rut = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.5, ARENA*2),
+      new THREE.MeshLambertMaterial({color:0x2a1a0e})
+    );
+    rut.rotation.x = -Math.PI/2;
+    rut.position.set(-6+ex, 0.015, 0);
+    addObj(rut);
+  }
+
+  // ── Small side path from road to barn ──
+  const barnPath = new THREE.Mesh(
+    new THREE.PlaneGeometry(14, 4),
+    new THREE.MeshLambertMaterial({color:0x332818})
+  );
+  barnPath.rotation.x = -Math.PI/2;
+  barnPath.position.set(-15, 0.012, -13);
+  addObj(barnPath);
+
+  // ── Side path from road to farmhouse ──
+  const housePath = new THREE.Mesh(
+    new THREE.PlaneGeometry(4, 10),
+    new THREE.MeshLambertMaterial({color:0x332818})
+  );
+  housePath.rotation.x = -Math.PI/2;
+  housePath.position.set(-2, 0.012, 12);
+  addObj(housePath);
+
+  // ══════════════════════════════════════════
+  // TRACTOR (on road, center area)
+  // ══════════════════════════════════════════
+  const tx=-6, tz=-6;
+  const tBody = mkBox(2.8, 1.6, 2.0, 0x447722);
+  tBody.position.set(tx, 1.3, tz); addObj(tBody);
+  const tHood = mkBox(1.6, 1.1, 1.8, 0x447722);
+  tHood.position.set(tx+2, 0.95, tz); addObj(tHood);
+  const tPipe = mkBox(0.15, 1.8, 0.15, 0x444444);
+  tPipe.position.set(tx+2.4, 2.2, tz-0.6); addObj(tPipe);
+  for(const s of [-1,1]){
+    const wheel = mkBox(0.4, 1.6, 1.6, 0x1a1a1a);
+    wheel.position.set(tx-0.6, 0.8, tz+s*1.2); addObj(wheel);
+  }
+  for(const s of [-1,1]){
+    const fw = mkBox(0.3, 0.9, 0.9, 0x1a1a1a);
+    fw.position.set(tx+2.2, 0.45, tz+s*1.0); addObj(fw);
+  }
+
+  // ══════════════════════════════════════════
+  // PICKUP TRUCK (far south on road)
+  // ══════════════════════════════════════════
+  const pkx=-6, pkz=-24;
+  const pkBody = mkBox(5, 1.6, 2.4, 0x664422);
+  pkBody.position.set(pkx, 1.1, pkz); addObj(pkBody);
+  const pkCab = mkBox(2.2, 1.3, 2.2, 0x664422);
+  pkCab.position.set(pkx-0.8, 2.3, pkz); addObj(pkCab);
+  const pkWind = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.9,1.8),
+    new THREE.MeshBasicMaterial({color:0x334455, transparent:true, opacity:0.5}));
+  pkWind.position.set(pkx+0.3, 2.4, pkz); addObj(pkWind);
+  for(const wx2 of [-1.8, 1.8]){
+    for(const s of [-1,1]){
+      const w2 = mkBox(0.3, 0.9, 0.9, 0x111111);
+      w2.position.set(pkx+wx2, 0.45, pkz+s*1.3); addObj(w2);
+    }
+  }
+  // Headlights (dim, broken)
+  const hl = new THREE.PointLight(0xffee88, 0.4, 5);
+  hl.position.set(pkx+2.8, 1.2, pkz); addObj(hl);
+
+  // ══════════════════════════════════════════
+  // WOODEN FENCES — expanded boundary + paddocks
+  // ══════════════════════════════════════════
+  function addFenceRun(x1,z1,x2,z2){
+    const dx=x2-x1, dz=z2-z1, len=Math.sqrt(dx*dx+dz*dz);
+    if(len < 0.1) return;
+    const angle = Math.atan2(dx,dz);
+    const postCount = Math.floor(len/3)+1;
+    for(let i=0; i<=postCount; i++){
+      const t=i/postCount;
+      const post = mkBox(0.2, 1.4, 0.2, 0x5a4a30);
+      post.position.set(x1+dx*t, 0.7, z1+dz*t);
+      addObj(post);
+    }
+    for(const rh of [0.4, 1.0]){
+      const rail = mkBox(len, 0.12, 0.1, 0x6a5a38);
+      rail.position.set(x1+dx*0.5, rh, z1+dz*0.5);
+      rail.rotation.y = angle;
+      addObj(rail);
+    }
+  }
+
+  // Farmhouse front yard fences
+  addFenceRun(-8, 15, -5, 15);
+  addFenceRun(5, 15, 8, 15);
+  // Farmhouse side fences
+  addFenceRun(-8, 15, -8, 22);
+  addFenceRun(8, 15, 8, 22);
+
+  // Cornfield west edge fence
+  addFenceRun(9, -23, 9, 15);
+
+  // Outer farm boundary fences (with gaps for zombie entry)
+  // North boundary
+  addFenceRun(-38, 30, -10, 30);
+  addFenceRun(6, 30, 38, 30);
+  // South boundary
+  addFenceRun(-38, -38, -8, -38);
+  addFenceRun(6, -38, 38, -38);
+  // West boundary
+  addFenceRun(-38, -38, -38, -5);
+  addFenceRun(-38, 8, -38, 30);
+  // East boundary
+  addFenceRun(38, -38, 38, -10);
+  addFenceRun(38, 5, 38, 30);
+
+  // ══════════════════════════════════════════
+  // WATER TOWER (northeast)
+  // ══════════════════════════════════════════
+  const wtx=24, wtz=20;
+  for(const lx of [-1,1]){
+    for(const lz of [-1,1]){
+      const leg = mkBox(0.3, 6, 0.3, 0x5a5a5a);
+      leg.position.set(wtx+lx, 3.0, wtz+lz); addObj(leg);
+    }
+  }
+  const brace1 = mkBox(0.1, 4, 0.1, 0x555555);
+  brace1.position.set(wtx, 3, wtz-1); brace1.rotation.z=0.65; addObj(brace1);
+  const brace2 = mkBox(0.1, 4, 0.1, 0x555555);
+  brace2.position.set(wtx, 3, wtz+1); brace2.rotation.z=-0.65; addObj(brace2);
+  const tank = mkBox(3, 2, 3, 0x4a6a7a);
+  tank.position.set(wtx, 7.0, wtz); addObj(tank);
+  const tankRoof = mkBox(3.3, 0.5, 3.3, 0x3a5a6a);
+  tankRoof.position.set(wtx, 8.2, wtz); addObj(tankRoof);
+
+  // ══════════════════════════════════════════
+  // WINDMILL (northwest) — second tall landmark
+  // ══════════════════════════════════════════
+  const wmx=-24, wmz=6;
+  // Tower
+  const wmTower = mkBox(2.2, 7, 2.2, 0x6a6a6a);
+  wmTower.position.set(wmx, 3.5, wmz); addObj(wmTower);
+  // Platform
+  const wmPlat = mkBox(3, 0.25, 3, 0x555555);
+  wmPlat.position.set(wmx, 7.1, wmz); addObj(wmPlat);
+  // Blade hub
+  const wmHub = mkBox(0.8, 0.8, 0.8, 0x444444);
+  wmHub.position.set(wmx, 8.0, wmz-1.2); addObj(wmHub);
+  // Blades (4 blades as flat boxes)
+  for(let b=0; b<4; b++){
+    const blade = mkBox(0.4, 4, 0.08, 0x888888);
+    blade.position.set(wmx, 8.0, wmz-1.3);
+    blade.rotation.z = b * Math.PI/2 + 0.3;
+    addObj(blade);
+  }
+  // Windmill tail fin
+  const wmTail = mkBox(0.08, 1.5, 2.5, 0x777777);
+  wmTail.position.set(wmx, 8.0, wmz+1); addObj(wmTail);
+
+  // ══════════════════════════════════════════
+  // CHICKEN COOP (northwest, near windmill)
+  // ══════════════════════════════════════════
+  const ccx=-24, ccz=16;
+  const coopBody = mkBox(3.5, 1.8, 3.5, 0x8a7a5a);
+  coopBody.position.set(ccx, 0.9, ccz); addObj(coopBody);
+  const coopRoof = mkBox(4, 0.25, 4, 0x5a4a30);
+  coopRoof.position.set(ccx, 2.0, ccz); coopRoof.rotation.z=0.15; addObj(coopRoof);
+  addFenceRun(ccx-3.5, ccz-3.5, ccx+3.5, ccz-3.5);
+  addFenceRun(ccx+3.5, ccz-3.5, ccx+3.5, ccz+3.5);
+  addFenceRun(ccx+3.5, ccz+3.5, ccx-3.5, ccz+3.5);
+
+  // ══════════════════════════════════════════
+  // POND (southeast) — bigger
+  // ══════════════════════════════════════════
+  const pond = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 7),
+    new THREE.MeshLambertMaterial({color:0x1a3a4a, transparent:true, opacity:0.7})
+  );
+  pond.rotation.x = -Math.PI/2;
+  pond.position.set(12, 0.02, -30); addObj(pond);
+  const pondEdge = new THREE.Mesh(
+    new THREE.PlaneGeometry(13, 10),
+    new THREE.MeshLambertMaterial({color:0x1a1a0a})
+  );
+  pondEdge.rotation.x = -Math.PI/2;
+  pondEdge.position.set(12, 0.005, -30); addObj(pondEdge);
+
+  // ══════════════════════════════════════════
+  // HAY BALES — scattered across the expanded map
+  // ══════════════════════════════════════════
+  const hayPositions = [
+    {x:4,z:-16}, {x:-14,z:4}, {x:-12,z:-1}, {x:3,z:-8},
+    {x:-6,z:28}, {x:28,z:-4}, {x:-30,z:-6}, {x:6,z:10},
+    {x:-16,z:24}, {x:30,z:10}, {x:-8,z:-30}, {x:20,z:24},
+    {x:-20,z:-32}, {x:8,z:32}, {x:-34,z:-20}, {x:0,z:-22},
+  ];
+  for(const hp of hayPositions){
+    const hay = mkBox(1.8+Math.random()*0.5, 1.0+Math.random()*0.4, 1.5+Math.random()*0.3, 0xccaa44);
+    hay.position.set(hp.x, hay.geometry.parameters.height/2, hp.z);
+    hay.rotation.y = Math.random()*Math.PI;
+    addObj(hay);
+  }
+
+  // ══════════════════════════════════════════
+  // TOOL SHED (south-center, small building)
+  // ══════════════════════════════════════════
+  const shed = mkBox(4, 2.5, 3, 0x4a3a20);
+  shed.position.set(4, 1.25, -20); addObj(shed);
+  const shedRoof = mkBox(4.5, 0.2, 3.5, 0x3a2a14);
+  shedRoof.position.set(4, 2.6, -20); shedRoof.rotation.z=0.12; addObj(shedRoof);
+  const shedDoor = new THREE.Mesh(new THREE.BoxGeometry(1.0,1.8,0.1), new THREE.MeshLambertMaterial({color:0x2a1808}));
+  shedDoor.position.set(4, 0.9, -18.49); addObj(shedDoor);
+
+  // ══════════════════════════════════════════
+  // ATMOSPHERE — ground patches, lanterns, moonlight
+  // ══════════════════════════════════════════
+  // Grass patches (bigger spread)
+  for(let i=0;i<20;i++){
+    const px3 = (Math.random()-0.5)*85;
+    const pz = (Math.random()-0.5)*85;
+    const patch = new THREE.Mesh(
+      new THREE.PlaneGeometry(5+Math.random()*8, 5+Math.random()*8),
+      new THREE.MeshLambertMaterial({color: Math.random()>0.5 ? 0x1e3a0e : 0x223a12})
+    );
+    patch.rotation.x = -Math.PI/2;
+    patch.position.set(px3, 0.008, pz);
+    patch.rotation.z = Math.random()*Math.PI;
+    addObj(patch);
+  }
+
+  // Dirt patches near buildings
+  const dirtSpots = [{x:0,z:15},{x:-22,z:-12},{x:-6,z:0},{x:-6,z:-20}];
+  for(const ds of dirtSpots){
+    const dirt = new THREE.Mesh(
+      new THREE.PlaneGeometry(6+Math.random()*4, 6+Math.random()*4),
+      new THREE.MeshLambertMaterial({color:0x2a1e10})
+    );
+    dirt.rotation.x = -Math.PI/2;
+    dirt.position.set(ds.x, 0.009, ds.z);
+    addObj(dirt);
+  }
+
+  // Warm lantern lights spread across farm
+  const lanternPositions = [
+    {x:0,z:15,c:0xffaa44},        // farmhouse porch
+    {x:-22,z:-13,c:0xff8833},     // barn entrance
+    {x:-6,z:-8,c:0xffcc55},       // road lantern south
+    {x:-6,z:6,c:0xffcc55},        // road lantern center
+    {x:-6,z:18,c:0xffcc55},       // road lantern north
+    {x:-6,z:-20,c:0xffcc55},      // road lantern far south
+    {x:9,z:0,c:0xddaa33},         // cornfield edge
+    {x:-24,z:10,c:0xffbb44},      // near windmill
+  ];
+  for(const lp of lanternPositions){
+    const lPost = mkBox(0.15, 2.8, 0.15, 0x333333);
+    lPost.position.set(lp.x, 1.4, lp.z); addObj(lPost);
+    const lBox = mkBox(0.45, 0.55, 0.45, 0x444422);
+    lBox.position.set(lp.x, 3.0, lp.z); addObj(lBox);
+    const lLight = new THREE.PointLight(lp.c, 1.8, 12);
+    lLight.position.set(lp.x, 3.3, lp.z); addObj(lLight);
+  }
+
+  // Moonlight atmosphere — two cool blue fills for the bigger map
+  const moonFill = new THREE.PointLight(0x4466aa, 0.5, 100);
+  moonFill.position.set(0, 25, 0); addObj(moonFill);
+  const moonFill2 = new THREE.PointLight(0x4466aa, 0.3, 60);
+  moonFill2.position.set(20, 20, -15); addObj(moonFill2);
+
+  // Warm glow from barn area
+  const barnGlow = new THREE.PointLight(0xff6633, 0.5, 15);
+  barnGlow.position.set(bx, 1.5, bz+5); addObj(barnGlow);
 }
 
 // ══════════════════════════════════════════════════
@@ -5627,7 +6085,7 @@ document.querySelectorAll('.mbtn, .gbtn, .stab').forEach(btn => {
 // MAP SELECTION UI
 // ══════════════════════════════════════════════════
 const MAP_DISPLAY = {
-  farm:    { icon: '🌾', name: 'THE FARM',              theme: 'Rural Horror',  desc: 'Abandoned farmland surrounded by crumbling ruins. Open fields with scattered obstacles.', tag: 'CLASSIC' },
+  farm:    { icon: '🌾', name: 'THE FARM',              theme: 'Rural Horror',  desc: 'Moonlit farmstead with a cornfield, red barn, and old farmhouse. Watch the corn rows.', tag: 'CLASSIC' },
   redline: { icon: '🏚️', name: 'REDLINE TRAILER PARK', theme: 'Desert Wasteland', desc: 'Desolate roadside trailer park in a scorched desert. Gas station, diner, junkyard, and more.', tag: '' },
   carnival: { icon: '🎪', name: 'DARK CARNIVAL', theme: 'Abandoned Fairground', desc: 'A neon-lit nightmare. Flickering rides, shattered booths, and the horde closing in from every direction.', tag: 'NEW' },
 };
