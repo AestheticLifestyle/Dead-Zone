@@ -276,6 +276,13 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 .lobby-map{margin:12px 0;text-align:center}
 .lobby-map-label{font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:4px}
 .lobby-map-name{font-size:18px;font-weight:700;letter-spacing:4px;color:#ffd700;text-transform:uppercase}
+/* character selection */
+.char-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0}
+.char-card{width:72px;padding:8px 4px;border:2px solid rgba(255,255,255,.12);cursor:pointer;transition:.25s;text-align:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.char-card:hover{border-color:rgba(255,80,80,.5);transform:scale(1.06)}
+.char-card.selected{border-color:#ff1a1a;box-shadow:0 0 20px rgba(255,26,26,.35)}
+.char-card .cc-icon{font-size:22px;line-height:1;margin-bottom:4px}
+.char-card .cc-name{font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.7);text-transform:uppercase;line-height:1.2}
 
 /* ── MOBILE TOUCH CONTROLS ── */
 #mobileControls{display:none;position:fixed;inset:0;pointer-events:none;z-index:9000;touch-action:none}
@@ -405,6 +412,8 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="lobby-map-name" id="hostMapName">FARM</div>
   </div>
   <button class="gbtn" id="hostChangeMapBtn" style="font-size:10px;margin-bottom:12px">&#9881;&nbsp; Change Map</button>
+  <div style="font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:4px">Choose Character</div>
+  <div class="char-select" id="hostCharSelect"></div>
   <div style="font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.2);margin-bottom:16px;text-transform:uppercase">Waiting for players… (1–4)</div>
   <button class="gbtn" id="hostReadyBtn">✓&nbsp; Ready Up</button>
   <div style="font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.15);margin-top:14px">Game starts when all players ready</div>
@@ -431,6 +440,8 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="lobby-map-label">Selected Map</div>
     <div class="lobby-map-name" id="waitMapName">FARM</div>
   </div>
+  <div style="font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.25);text-transform:uppercase;margin-bottom:4px">Choose Character</div>
+  <div class="char-select" id="waitCharSelect"></div>
   <div class="lerr" id="waitMsg" style="color:rgba(255,255,255,.3)">Waiting for host to start…</div>
   <button class="gbtn" id="waitReadyBtn">✓&nbsp; Ready Up</button>
   <br><br>
@@ -452,7 +463,9 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
   <div class="gtitle" style="font-size:38px;margin-bottom:6px">SELECT MAP</div>
   <div class="gsub">Choose your battlefield</div>
   <div class="map-grid" id="mapGrid"></div>
-  <button class="gbtn" id="mapSelectPlayBtn" style="margin-top:24px">&#9654;&nbsp; CONTINUE</button>
+  <div style="margin-top:18px;font-size:9px;letter-spacing:4px;color:rgba(255,255,255,.25);text-transform:uppercase">Choose Character</div>
+  <div class="char-select" id="soloCharSelect"></div>
+  <button class="gbtn" id="mapSelectPlayBtn" style="margin-top:14px">&#9654;&nbsp; CONTINUE</button>
   <button class="gbtn" style="font-size:10px;opacity:.4;margin-top:12px" id="mapSelectBackBtn">&#8592; BACK</button>
 </div>
 
@@ -486,6 +499,19 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div id="scoreTxt">0</div>
     <div id="killTxt">0 kills</div>
   </div>
+</div>
+
+<!-- Ability HUD -->
+<div id="abilityHud" style="position:fixed;bottom:100px;left:20px;display:none;z-index:99;text-align:center">
+  <div id="abilityIcon" style="font-size:24px;line-height:1"></div>
+  <div id="abilityCdRing" style="width:44px;height:44px;border:3px solid rgba(255,255,255,.5);border-radius:50%;margin:4px auto;position:relative;display:flex;align-items:center;justify-content:center">
+    <div id="abilityCdText" style="font-size:10px;font-weight:700;letter-spacing:1px;color:#fff"></div>
+    <svg width="50" height="50" style="position:absolute;top:-3px;left:-3px;transform:rotate(-90deg)">
+      <circle id="abilityCdCircle" cx="25" cy="25" r="22" fill="none" stroke="#ff4444" stroke-width="3" stroke-dasharray="138.2" stroke-dashoffset="0"/>
+    </svg>
+  </div>
+  <div id="abilityKey" style="font-size:8px;letter-spacing:2px;color:rgba(255,255,255,.4);text-transform:uppercase">[Q]</div>
+  <div id="abilityName" style="font-size:7px;letter-spacing:1.5px;color:rgba(255,255,255,.3);text-transform:uppercase;margin-top:2px"></div>
 </div>
 
 <!-- Wave banner -->
@@ -709,6 +735,24 @@ const DASH_SPEED = 18;      // units/s during dash
 let dashAnimT = 0;          // animation blend for dash (0→1→0)
 let waveActive=false, waveDelay=0, zombsLeft=0;
 
+// ── Character Ability System ──
+const ABILITY_DEFS = {
+  soldier:   { name:'Frag Grenade',  cd:25, icon:'🧨' },
+  scavenger: { name:'Decoy Trap',    cd:30, icon:'🪤' },
+  mechanic:  { name:'Auto Turret',   cd:35, icon:'⚙️' },
+  medic:     { name:'Healing Pulse', cd:30, icon:'💚' },
+};
+let abilityCooldown = 0;        // seconds remaining on cooldown
+let abilityActive = false;       // is an ability currently deployed
+// Grenade state
+let grenadeObj = null;           // { mesh, vel, fuseT }
+// Decoy state
+let decoyObj = null;             // { mesh, lifeT, pos }
+// Turret state
+let turretObj = null;            // { mesh, lifeT, pos, shootCD }
+// Heal pulse visual
+let healPulseObj = null;         // { mesh, t }
+
 // ── Downed / Revive system (multiplayer) ──
 let downed = false;              // local player is downed
 let downedTimer = 0;             // bleed-out countdown (seconds)
@@ -801,6 +845,16 @@ const CAM_DIST = 9;
 let ARENA    = 34; // will be set per map
 
 const PLAYER_COLORS = [0xff4444, 0x44aaff, 0xffcc00, 0x44ff88];
+
+// ── Character classes ──
+const CHARACTERS = {
+  soldier:   { id:'soldier',   name:'The Soldier',   icon:'🎖️', desc:'Heavy armor, combat boots' },
+  scavenger: { id:'scavenger', name:'The Scavenger',  icon:'🔧', desc:'Patched jacket, resourceful' },
+  mechanic:  { id:'mechanic',  name:'The Mechanic',   icon:'⚙️', desc:'Coveralls, metal arm brace' },
+  medic:     { id:'medic',     name:'The Medic',      icon:'🏥', desc:'Tactical vest, med backpack' },
+};
+const CHARACTER_ORDER = ['soldier','scavenger','mechanic','medic'];
+let selectedCharId = 'soldier';
 let PLAYER_SPAWNS = [
   new THREE.Vector3( 4,0, 4),
   new THREE.Vector3(-4,0, 4),
@@ -817,6 +871,7 @@ let mapSceneObjects = []; // track all map objects for cleanup
 const MAPS = {
   farm: {
     id:'farm', name:'The Farm', icon:'🌾',
+    music:'/music-farm.mp3',
     theme:'Abandoned rural farmstead',
     desc:'A moonlit farmstead with a cornfield, red barn, and old farmhouse. Survive the harvest.',
     tag:'CLASSIC',
@@ -866,6 +921,7 @@ const MAPS = {
   },
   redline: {
     id:'redline', name:'Redline Trailer Park', icon:'🏚️',
+    music:'/music-redline.mp3',
     theme:'Desert roadside trailer park',
     desc:'Dusty desert roads, broken trailers, rusty fences, and flickering neon. Survive the wasteland.',
     tag:'NEW',
@@ -915,6 +971,7 @@ const MAPS = {
   },
   carnival: {
     id:'carnival', name:'Dark Carnival', icon:'🎪',
+    music:'/music-carnival.mp3',
     theme:'Abandoned traveling carnival',
     desc:'A neon-lit nightmare. Flickering lights, shattered rides, and nowhere to run when the horde arrives.',
     tag:'NEW',
@@ -1252,6 +1309,82 @@ function buildFarmDecorations(){
     m.castShadow=true; m.receiveShadow=true; return m;
   };
 
+  // ── Helper: dead tree ──
+  function buildDeadTree(tx2,tz2,trunkH,lean){
+    const trunk = mkBox(0.5, trunkH, 0.5, 0x3a2a18);
+    trunk.position.set(tx2, trunkH/2, tz2);
+    trunk.rotation.z = lean || 0;
+    addObj(trunk);
+    // 2-4 random branches
+    const bCount = 2 + Math.floor(Math.random()*3);
+    for(let b=0; b<bCount; b++){
+      const bh = trunkH*0.4 + Math.random()*trunkH*0.5;
+      const bLen = 1.0 + Math.random()*2.0;
+      const bAngle = Math.random()*Math.PI*2;
+      const branch = mkBox(bLen, 0.18, 0.18, 0x3a2a18);
+      branch.position.set(tx2+Math.cos(bAngle)*bLen*0.4, bh, tz2+Math.sin(bAngle)*bLen*0.4);
+      branch.rotation.z = (Math.random()-0.5)*0.8;
+      branch.rotation.y = bAngle;
+      addObj(branch);
+      // Small twigs
+      if(Math.random()>0.4){
+        const twig = mkBox(0.6, 0.1, 0.1, 0x332818);
+        twig.position.set(tx2+Math.cos(bAngle)*bLen*0.7, bh+0.3, tz2+Math.sin(bAngle)*bLen*0.7);
+        twig.rotation.z = (Math.random()-0.5)*1.2;
+        twig.rotation.y = bAngle+0.5;
+        addObj(twig);
+      }
+    }
+  }
+
+  // ── Helper: scarecrow ──
+  function buildScarecrow(sx2,sz2,rot){
+    // Post
+    const sPost = mkBox(0.2, 3.2, 0.2, 0x5a4a30);
+    sPost.position.set(sx2, 1.6, sz2); addObj(sPost);
+    // Cross arm
+    const sArm = mkBox(2.4, 0.15, 0.15, 0x5a4a30);
+    sArm.position.set(sx2, 2.6, sz2); sArm.rotation.y=rot; addObj(sArm);
+    // Head (burlap sack)
+    const sHead = mkBox(0.55, 0.6, 0.5, 0xaa9960);
+    sHead.position.set(sx2, 3.4, sz2); addObj(sHead);
+    // Hat
+    const sHatBrim = mkBox(1.0, 0.08, 1.0, 0x2a1a08);
+    sHatBrim.position.set(sx2, 3.75, sz2); addObj(sHatBrim);
+    const sHatTop = mkBox(0.6, 0.5, 0.6, 0x2a1a08);
+    sHatTop.position.set(sx2, 4.05, sz2); addObj(sHatTop);
+    // Shirt (draped flannel)
+    const sShirt = mkBox(1.2, 1.0, 0.5, 0x884422);
+    sShirt.position.set(sx2, 2.3, sz2); addObj(sShirt);
+    // Eyes (dark dots)
+    const eyeOff = rot === 0 ? {dx:0.15,dz:0.26} : {dx:0.26,dz:0.15};
+    for(const side of [-1,1]){
+      const eye = mkBox(0.1, 0.1, 0.1, 0x111111);
+      eye.position.set(sx2+side*eyeOff.dx, 3.45, sz2-eyeOff.dz);
+      addObj(eye);
+    }
+  }
+
+  // ── Helper: fence run ──
+  function addFenceRun(x1,z1,x2,z2){
+    const dx=x2-x1, dz=z2-z1, len=Math.sqrt(dx*dx+dz*dz);
+    if(len < 0.1) return;
+    const angle = Math.atan2(dx,dz);
+    const postCount = Math.floor(len/3)+1;
+    for(let i=0; i<=postCount; i++){
+      const t=i/postCount;
+      const post = mkBox(0.2, 1.4, 0.2, 0x5a4a30);
+      post.position.set(x1+dx*t, 0.7, z1+dz*t);
+      addObj(post);
+    }
+    for(const rh of [0.4, 1.0]){
+      const rail = mkBox(len, 0.12, 0.1, 0x6a5a38);
+      rail.position.set(x1+dx*0.5, rh, z1+dz*0.5);
+      rail.rotation.y = angle;
+      addObj(rail);
+    }
+  }
+
   // ══════════════════════════════════════════
   // FARMHOUSE — two-story wooden house with porch (north)
   // ══════════════════════════════════════════
@@ -1282,6 +1415,14 @@ function buildFarmDecorations(){
     const post = mkBox(0.2, 3.2, 0.2, 0x5a4a30);
     post.position.set(hx+px2, 1.7, hz-7.3); addObj(post);
   }
+
+  // Porch clutter — barrels and crates
+  const pCrate1 = mkBox(0.8, 0.8, 0.8, 0x5a4a30);
+  pCrate1.position.set(hx-4.2, 0.55, hz-6.5); addObj(pCrate1);
+  const pCrate2 = mkBox(0.7, 0.7, 0.7, 0x4a3a20);
+  pCrate2.position.set(hx-3.4, 0.5, hz-6.2); pCrate2.rotation.y=0.3; addObj(pCrate2);
+  const pBarrel = mkBox(0.7, 1.0, 0.7, 0x6a5a3a);
+  pBarrel.position.set(hx+4.0, 0.65, hz-6.3); addObj(pBarrel);
 
   // Windows
   const winMat = new THREE.MeshBasicMaterial({color:0x1a2a44, transparent:true, opacity:0.6});
@@ -1350,9 +1491,23 @@ function buildFarmDecorations(){
     const hb = mkBox(2, 1.2, 1.5, 0xccaa44);
     hb.position.set(bx+hbx, 0.6, bz-2.5); addObj(hb);
   }
-  // Stacked bales
   const hbStack = mkBox(2, 1.2, 1.5, 0xccaa44);
   hbStack.position.set(bx-3, 1.8, bz-2.5); addObj(hbStack);
+
+  // Barrels near barn entrance
+  const bBarrel1 = mkBox(0.7, 1.0, 0.7, 0x6a4a2a);
+  bBarrel1.position.set(bx+3.5, 0.5, bz+5.5); addObj(bBarrel1);
+  const bBarrel2 = mkBox(0.7, 1.0, 0.7, 0x6a4a2a);
+  bBarrel2.position.set(bx+4.3, 0.5, bz+5.2); addObj(bBarrel2);
+  // Pitchfork leaning against barn
+  const pfHandle = mkBox(0.08, 2.8, 0.08, 0x5a4a30);
+  pfHandle.position.set(bx-5.7, 1.4, bz+3); pfHandle.rotation.z=0.18; addObj(pfHandle);
+  const pfHead = mkBox(0.5, 0.08, 0.08, 0x555555);
+  pfHead.position.set(bx-5.4, 2.7, bz+3); addObj(pfHead);
+  for(const t of [-0.2, 0, 0.2]){
+    const tine = mkBox(0.04, 0.5, 0.04, 0x555555);
+    tine.position.set(bx-5.4+t, 2.95, bz+3); addObj(tine);
+  }
 
   // ── Silo ──
   const sx=-27, sz=-18;
@@ -1368,36 +1523,77 @@ function buildFarmDecorations(){
   siloTip.position.set(sx, 10.3, sz); addObj(siloTip);
 
   // ══════════════════════════════════════════
-  // CORNFIELD — massive field filling the east side
+  // CORNFIELD — 6 clustered elliptical patches
   // ══════════════════════════════════════════
   const cornColor = 0x5a7a20;
   const cornTop = 0xaaaa30;
-  // Corn spans x:10 to x:32, z:-22 to z:14 — huge field
-  for(let row=10; row<=32; row+=2.0){
-    for(let col=-22; col<=14; col+=1.8){
-      const cx2 = row + (Math.random()-0.5)*0.7;
-      const cz = col + (Math.random()-0.5)*0.7;
-      const h2 = 2.4 + Math.random()*0.8;
-      // Stalk
-      const stalk = mkBox(0.12, h2, 0.12, cornColor);
-      stalk.position.set(cx2, h2/2, cz);
-      stalk.rotation.y = Math.random()*Math.PI;
-      addObj(stalk);
-      // Leaves
-      for(const lr of [-0.3, 0.3]){
-        const leaf = new THREE.Mesh(
-          new THREE.BoxGeometry(0.65, 0.08, 0.04),
-          new THREE.MeshLambertMaterial({color:cornColor})
-        );
-        leaf.position.set(cx2+lr*0.3, h2*0.6, cz);
-        leaf.rotation.z = lr > 0 ? 0.5 : -0.5;
-        leaf.rotation.y = Math.random()*Math.PI;
-        addObj(leaf);
+  const cornPatches = [
+    {cx:16, cz:-8,  rx:5, rz:7},   // large patch east-center
+    {cx:24, cz:-16, rx:6, rz:5},   // large patch far east-south
+    {cx:28, cz:4,   rx:4, rz:6},   // medium patch far east-north
+    {cx:14, cz:8,   rx:4, rz:4},   // small patch east of center
+    {cx:22, cz:10,  rx:5, rz:4},   // medium patch east
+    {cx:32, cz:-6,  rx:4, rz:5},   // far east patch
+  ];
+  for(const cp of cornPatches){
+    // Dirt ground under corn patch
+    const patchDirt = new THREE.Mesh(
+      new THREE.PlaneGeometry(cp.rx*2.2, cp.rz*2.2),
+      new THREE.MeshLambertMaterial({color:0x2a1e10})
+    );
+    patchDirt.rotation.x = -Math.PI/2;
+    patchDirt.position.set(cp.cx, 0.006, cp.cz);
+    addObj(patchDirt);
+
+    // Fill patch with corn (elliptical distribution)
+    for(let row=-cp.rx; row<=cp.rx; row+=2.0){
+      for(let col=-cp.rz; col<=cp.rz; col+=1.8){
+        const nx = row/cp.rx, nz = col/cp.rz;
+        if(nx*nx + nz*nz > 1.0) continue;  // ellipse test
+        const cx2 = cp.cx + row + (Math.random()-0.5)*0.7;
+        const cz = cp.cz + col + (Math.random()-0.5)*0.7;
+        const h2 = 2.4 + Math.random()*0.8;
+        const stalk = mkBox(0.12, h2, 0.12, cornColor);
+        stalk.position.set(cx2, h2/2, cz);
+        stalk.rotation.y = Math.random()*Math.PI;
+        addObj(stalk);
+        for(const lr of [-0.3, 0.3]){
+          const leaf = new THREE.Mesh(
+            new THREE.BoxGeometry(0.65, 0.08, 0.04),
+            new THREE.MeshLambertMaterial({color:cornColor})
+          );
+          leaf.position.set(cx2+lr*0.3, h2*0.6, cz);
+          leaf.rotation.z = lr > 0 ? 0.5 : -0.5;
+          leaf.rotation.y = Math.random()*Math.PI;
+          addObj(leaf);
+        }
+        const tassel = mkBox(0.2, 0.4, 0.2, cornTop);
+        tassel.position.set(cx2, h2+0.2, cz); addObj(tassel);
       }
-      // Golden top tassel
-      const tassel = mkBox(0.2, 0.4, 0.2, cornTop);
-      tassel.position.set(cx2, h2+0.2, cz); addObj(tassel);
     }
+  }
+
+  // ══════════════════════════════════════════
+  // PLOWED FIELD — between barn and farmhouse
+  // ══════════════════════════════════════════
+  const pfX1=-14, pfX2=6, pfZ1=-4, pfZ2=10;
+  // Brown dirt base
+  const plowDirt = new THREE.Mesh(
+    new THREE.PlaneGeometry(pfX2-pfX1+2, pfZ2-pfZ1+2),
+    new THREE.MeshLambertMaterial({color:0x3a2810})
+  );
+  plowDirt.rotation.x = -Math.PI/2;
+  plowDirt.position.set((pfX1+pfX2)/2, 0.007, (pfZ1+pfZ2)/2);
+  addObj(plowDirt);
+  // Plowed rows (dark ridges)
+  for(let pz=pfZ1; pz<=pfZ2; pz+=1.2){
+    const furrow = new THREE.Mesh(
+      new THREE.PlaneGeometry(pfX2-pfX1, 0.4),
+      new THREE.MeshLambertMaterial({color:0x2a1a08})
+    );
+    furrow.rotation.x = -Math.PI/2;
+    furrow.position.set((pfX1+pfX2)/2, 0.012, pz);
+    addObj(furrow);
   }
 
   // ══════════════════════════════════════════
@@ -1476,36 +1672,16 @@ function buildFarmDecorations(){
       w2.position.set(pkx+wx2, 0.45, pkz+s*1.3); addObj(w2);
     }
   }
-  // Headlights (dim, broken)
   const hl = new THREE.PointLight(0xffee88, 0.4, 5);
   hl.position.set(pkx+2.8, 1.2, pkz); addObj(hl);
 
   // ══════════════════════════════════════════
-  // WOODEN FENCES — expanded boundary + paddocks
+  // WOODEN FENCES — farmhouse yard + outer boundary
   // ══════════════════════════════════════════
-  function addFenceRun(x1,z1,x2,z2){
-    const dx=x2-x1, dz=z2-z1, len=Math.sqrt(dx*dx+dz*dz);
-    if(len < 0.1) return;
-    const angle = Math.atan2(dx,dz);
-    const postCount = Math.floor(len/3)+1;
-    for(let i=0; i<=postCount; i++){
-      const t=i/postCount;
-      const post = mkBox(0.2, 1.4, 0.2, 0x5a4a30);
-      post.position.set(x1+dx*t, 0.7, z1+dz*t);
-      addObj(post);
-    }
-    for(const rh of [0.4, 1.0]){
-      const rail = mkBox(len, 0.12, 0.1, 0x6a5a38);
-      rail.position.set(x1+dx*0.5, rh, z1+dz*0.5);
-      rail.rotation.y = angle;
-      addObj(rail);
-    }
-  }
 
   // Farmhouse front yard fences
   addFenceRun(-8, 15, -5, 15);
   addFenceRun(5, 15, 8, 15);
-  // Farmhouse side fences
   addFenceRun(-8, 15, -8, 22);
   addFenceRun(8, 15, 8, 22);
 
@@ -1513,16 +1689,12 @@ function buildFarmDecorations(){
   addFenceRun(9, -23, 9, 15);
 
   // Outer farm boundary fences (with gaps for zombie entry)
-  // North boundary
   addFenceRun(-38, 30, -10, 30);
   addFenceRun(6, 30, 38, 30);
-  // South boundary
   addFenceRun(-38, -38, -8, -38);
   addFenceRun(6, -38, 38, -38);
-  // West boundary
   addFenceRun(-38, -38, -38, -5);
   addFenceRun(-38, 8, -38, 30);
-  // East boundary
   addFenceRun(38, -38, 38, -10);
   addFenceRun(38, 5, 38, 30);
 
@@ -1546,26 +1718,21 @@ function buildFarmDecorations(){
   tankRoof.position.set(wtx, 8.2, wtz); addObj(tankRoof);
 
   // ══════════════════════════════════════════
-  // WINDMILL (northwest) — second tall landmark
+  // WINDMILL (northwest)
   // ══════════════════════════════════════════
   const wmx=-24, wmz=6;
-  // Tower
   const wmTower = mkBox(2.2, 7, 2.2, 0x6a6a6a);
   wmTower.position.set(wmx, 3.5, wmz); addObj(wmTower);
-  // Platform
   const wmPlat = mkBox(3, 0.25, 3, 0x555555);
   wmPlat.position.set(wmx, 7.1, wmz); addObj(wmPlat);
-  // Blade hub
   const wmHub = mkBox(0.8, 0.8, 0.8, 0x444444);
   wmHub.position.set(wmx, 8.0, wmz-1.2); addObj(wmHub);
-  // Blades (4 blades as flat boxes)
   for(let b=0; b<4; b++){
     const blade = mkBox(0.4, 4, 0.08, 0x888888);
     blade.position.set(wmx, 8.0, wmz-1.3);
     blade.rotation.z = b * Math.PI/2 + 0.3;
     addObj(blade);
   }
-  // Windmill tail fin
   const wmTail = mkBox(0.08, 1.5, 2.5, 0x777777);
   wmTail.position.set(wmx, 8.0, wmz+1); addObj(wmTail);
 
@@ -1582,7 +1749,7 @@ function buildFarmDecorations(){
   addFenceRun(ccx+3.5, ccz+3.5, ccx-3.5, ccz+3.5);
 
   // ══════════════════════════════════════════
-  // POND (southeast) — bigger
+  // POND (southeast)
   // ══════════════════════════════════════════
   const pond = new THREE.Mesh(
     new THREE.PlaneGeometry(10, 7),
@@ -1596,6 +1763,120 @@ function buildFarmDecorations(){
   );
   pondEdge.rotation.x = -Math.PI/2;
   pondEdge.position.set(12, 0.005, -30); addObj(pondEdge);
+
+  // ══════════════════════════════════════════
+  // DEAD TREES — 9 scattered across the map
+  // ══════════════════════════════════════════
+  // Big center oak (near plowed field)
+  buildDeadTree(8.8, 16, 6.0, 0.05);
+  // Scattered dead trees at various locations
+  buildDeadTree(-32, -28, 4.5, -0.08);
+  buildDeadTree(34, -24, 3.8, 0.1);
+  buildDeadTree(-14, 28, 4.0, -0.05);
+  buildDeadTree(30, 26, 3.5, 0.12);
+  buildDeadTree(-34, 14, 4.2, -0.06);
+  buildDeadTree(6, -34, 3.6, 0.07);
+  buildDeadTree(-18, -34, 4.8, -0.1);
+  buildDeadTree(36, 14, 3.4, 0.04);
+
+  // ══════════════════════════════════════════
+  // TIRE SWING — hanging from big center oak
+  // ══════════════════════════════════════════
+  const tsX=8.8, tsZ=16;
+  // Rope
+  const rope = mkBox(0.06, 2.5, 0.06, 0x8a7a5a);
+  rope.position.set(tsX+1.2, 4.0, tsZ); addObj(rope);
+  // Tire (horizontal ring made of 4 box segments)
+  const tireY = 2.6;
+  for(let a=0; a<4; a++){
+    const ang = a * Math.PI/2;
+    const tSeg = mkBox(0.6, 0.25, 0.2, 0x1a1a1a);
+    tSeg.position.set(tsX+1.2+Math.cos(ang)*0.25, tireY, tsZ+Math.sin(ang)*0.25);
+    tSeg.rotation.y = ang;
+    addObj(tSeg);
+  }
+
+  // ══════════════════════════════════════════
+  // SCARECROWS — 2 placed in key locations
+  // ══════════════════════════════════════════
+  buildScarecrow(-4, 4, 0);          // in plowed field
+  buildScarecrow(18, -14, 0.4);      // near cornfield edge
+
+  // ══════════════════════════════════════════
+  // WELL — stone well near plowed field
+  // ══════════════════════════════════════════
+  const wlX=-12, wlZ=-4;
+  // Stone ring (octagonal approximation with boxes)
+  for(let a=0; a<8; a++){
+    const ang = a * Math.PI/4;
+    const stone = mkBox(0.7, 0.8, 0.3, 0x666666);
+    stone.position.set(wlX+Math.cos(ang)*0.7, 0.4, wlZ+Math.sin(ang)*0.7);
+    stone.rotation.y = ang;
+    addObj(stone);
+  }
+  // Two posts
+  const wPost1 = mkBox(0.15, 2.5, 0.15, 0x5a4a30);
+  wPost1.position.set(wlX-0.7, 1.25, wlZ); addObj(wPost1);
+  const wPost2 = mkBox(0.15, 2.5, 0.15, 0x5a4a30);
+  wPost2.position.set(wlX+0.7, 1.25, wlZ); addObj(wPost2);
+  // Crossbar
+  const wBar = mkBox(1.8, 0.12, 0.12, 0x5a4a30);
+  wBar.position.set(wlX, 2.5, wlZ); addObj(wBar);
+  // Small roof
+  const wRoof1 = mkBox(1.2, 0.1, 0.8, 0x3a2a14);
+  wRoof1.position.set(wlX-0.4, 2.8, wlZ); wRoof1.rotation.z=0.3; addObj(wRoof1);
+  const wRoof2 = mkBox(1.2, 0.1, 0.8, 0x3a2a14);
+  wRoof2.position.set(wlX+0.4, 2.8, wlZ); wRoof2.rotation.z=-0.3; addObj(wRoof2);
+  // Bucket hanging
+  const bucket = mkBox(0.3, 0.35, 0.3, 0x555555);
+  bucket.position.set(wlX, 1.8, wlZ); addObj(bucket);
+  const bucketRope = mkBox(0.04, 0.7, 0.04, 0x8a7a5a);
+  bucketRope.position.set(wlX, 2.15, wlZ); addObj(bucketRope);
+
+  // ══════════════════════════════════════════
+  // WOODEN CART — near barn area
+  // ══════════════════════════════════════════
+  const cartX=-15, cartZ=-12;
+  // Bed
+  const cartBed = mkBox(3.0, 0.15, 1.6, 0x5a4a30);
+  cartBed.position.set(cartX, 0.8, cartZ); addObj(cartBed);
+  // Sides
+  const cartSide1 = mkBox(3.0, 0.6, 0.1, 0x5a4a30);
+  cartSide1.position.set(cartX, 1.1, cartZ-0.8); addObj(cartSide1);
+  const cartSide2 = mkBox(3.0, 0.6, 0.1, 0x5a4a30);
+  cartSide2.position.set(cartX, 1.1, cartZ+0.8); addObj(cartSide2);
+  const cartBack = mkBox(0.1, 0.6, 1.6, 0x5a4a30);
+  cartBack.position.set(cartX-1.5, 1.1, cartZ); addObj(cartBack);
+  // Wheels
+  for(const s of [-1,1]){
+    const cWheel = mkBox(0.15, 0.9, 0.9, 0x3a2a14);
+    cWheel.position.set(cartX+0.5, 0.45, cartZ+s*0.9); addObj(cWheel);
+  }
+  // Handle
+  const cartHandle = mkBox(2.0, 0.1, 0.1, 0x5a4a30);
+  cartHandle.position.set(cartX+2.5, 0.7, cartZ); cartHandle.rotation.z=-0.15; addObj(cartHandle);
+
+  // ══════════════════════════════════════════
+  // LOG PILE — near farmhouse backyard
+  // ══════════════════════════════════════════
+  const lpX=7, lpZ=24;
+  // Stacked logs (3 rows)
+  for(let ly=0; ly<3; ly++){
+    const count = 4 - ly;
+    for(let li=0; li<count; li++){
+      const log = mkBox(2.0, 0.35, 0.35, 0x5a3a1a);
+      log.position.set(lpX, 0.18+ly*0.35, lpZ-0.6+li*0.4+(ly*0.2));
+      log.rotation.y = (Math.random()-0.5)*0.1;
+      addObj(log);
+    }
+  }
+  // Chopping block + axe
+  const chopBlock = mkBox(0.7, 0.6, 0.7, 0x4a3a1a);
+  chopBlock.position.set(lpX+1.8, 0.3, lpZ); addObj(chopBlock);
+  const axeHandle = mkBox(0.08, 1.2, 0.08, 0x5a4a30);
+  axeHandle.position.set(lpX+1.8, 0.9, lpZ); axeHandle.rotation.z=0.15; addObj(axeHandle);
+  const axeHead = mkBox(0.35, 0.25, 0.08, 0x666666);
+  axeHead.position.set(lpX+1.65, 1.4, lpZ); addObj(axeHead);
 
   // ══════════════════════════════════════════
   // HAY BALES — scattered across the expanded map
@@ -1614,7 +1895,7 @@ function buildFarmDecorations(){
   }
 
   // ══════════════════════════════════════════
-  // TOOL SHED (south-center, small building)
+  // TOOL SHED (south-center)
   // ══════════════════════════════════════════
   const shed = mkBox(4, 2.5, 3, 0x4a3a20);
   shed.position.set(4, 1.25, -20); addObj(shed);
@@ -1626,8 +1907,8 @@ function buildFarmDecorations(){
   // ══════════════════════════════════════════
   // ATMOSPHERE — ground patches, lanterns, moonlight
   // ══════════════════════════════════════════
-  // Grass patches (bigger spread)
-  for(let i=0;i<20;i++){
+  // Grass patches (25, bigger spread)
+  for(let i=0;i<25;i++){
     const px3 = (Math.random()-0.5)*85;
     const pz = (Math.random()-0.5)*85;
     const patch = new THREE.Mesh(
@@ -1641,7 +1922,7 @@ function buildFarmDecorations(){
   }
 
   // Dirt patches near buildings
-  const dirtSpots = [{x:0,z:15},{x:-22,z:-12},{x:-6,z:0},{x:-6,z:-20}];
+  const dirtSpots = [{x:0,z:15},{x:-22,z:-12},{x:-6,z:0},{x:-6,z:-20},{x:-12,z:-4},{x:8,z:24}];
   for(const ds of dirtSpots){
     const dirt = new THREE.Mesh(
       new THREE.PlaneGeometry(6+Math.random()*4, 6+Math.random()*4),
@@ -1662,6 +1943,8 @@ function buildFarmDecorations(){
     {x:-6,z:-20,c:0xffcc55},      // road lantern far south
     {x:9,z:0,c:0xddaa33},         // cornfield edge
     {x:-24,z:10,c:0xffbb44},      // near windmill
+    {x:-12,z:-4,c:0xffaa33},      // near well
+    {x:4,z:3,c:0xffcc44},         // near center oak
   ];
   for(const lp of lanternPositions){
     const lPost = mkBox(0.15, 2.8, 0.15, 0x333333);
@@ -1672,7 +1955,7 @@ function buildFarmDecorations(){
     lLight.position.set(lp.x, 3.3, lp.z); addObj(lLight);
   }
 
-  // Moonlight atmosphere — two cool blue fills for the bigger map
+  // Moonlight atmosphere
   const moonFill = new THREE.PointLight(0x4466aa, 0.5, 100);
   moonFill.position.set(0, 25, 0); addObj(moonFill);
   const moonFill2 = new THREE.PointLight(0x4466aa, 0.3, 60);
@@ -2930,6 +3213,8 @@ const GUNS={
   flamethrower:{name:'FLAMER',     dmg:18,  rof:0.06,mag:100,res:200, reload:2.2,cost:4500, color:0xff4400,auto:true, spread:0.15, bulletSpd:15,pellets:1,fire:true},
   burst:       {name:'BURST RIFLE',dmg:45, rof:0.38,mag:24, res:120, reload:1.8,cost:2800, color:0x3366aa,auto:false,spread:0.015,bulletSpd:50,pellets:1,burst:3,burstDelay:0.06},
   autoshotgun: {name:'AUTO SHOTGUN',dmg:40,rof:0.28,mag:16, res:80,  reload:2.4,cost:3000, color:0x885533,auto:false,spread:0.10, bulletSpd:30,pellets:8},
+  reaper:      {name:'THE REAPER',  dmg:45, rof:0.07,mag:60, res:180, reload:3.0,cost:0,    color:0x00ccff,auto:true, spread:0.04, bulletSpd:50,pellets:1,chain:true,chainCount:3,chainRange:8},
+  raygun:      {name:'RAY GUN',     dmg:160,rof:0.32,mag:20, res:100, reload:2.2,cost:0,    color:0x00ff44,auto:false,spread:0,    bulletSpd:28,pellets:1,splash:true,splashRadius:3.5},
 };
 
 // Wall buys removed — all weapons come from the Mystery Box only
@@ -2955,6 +3240,8 @@ const PAP_UPGRADES = {
   flamethrower:{name:"DRAGON'S BREATH",dmg:42, mag:150,res:350, color:0xff00aa, rof:0.05},
   burst:       {name:"HELLFIRE SALVO", dmg:95, mag:36, res:216, color:0x6644ff, rof:0.30, burst:3, burstDelay:0.045},
   autoshotgun: {name:"STREET SWEEPER", dmg:80, mag:24, res:144, color:0xcc44ff, rof:0.22, pellets:10},
+  reaper:      {name:"ZEUS' WRATH",   dmg:95, mag:90, res:360, color:0x88eeff, rof:0.05, chain:true, chainCount:5, chainRange:12},
+  raygun:      {name:"PORTER'S RAY MK2",dmg:350,mag:30,res:180,color:0x44ff88, rof:0.24, splash:true, splashRadius:5.5},
 };
 
 // ── ATTACHMENTS (applied via second PaP on already-packed weapons) ──
@@ -3100,6 +3387,11 @@ function packAPunch(){
     if(upg.explosive)  slot.explosive  = upg.explosive;
     if(upg.burst)      slot.burst      = upg.burst;
     if(upg.burstDelay) slot.burstDelay = upg.burstDelay;
+    if(upg.chain)      slot.chain      = upg.chain;
+    if(upg.chainCount) slot.chainCount = upg.chainCount;
+    if(upg.chainRange) slot.chainRange = upg.chainRange;
+    if(upg.splash)     slot.splash     = upg.splash;
+    if(upg.splashRadius) slot.splashRadius = upg.splashRadius;
 
     updateGunVisual();
     updateHUD();
@@ -3118,27 +3410,403 @@ function packAPunch(){
 // (PaP collision added dynamically inside buildMap)
 
 // ══════════════════════════════════════════════════
-// PLAYER MESH
+// CHARACTER MESH BUILDERS
 // ══════════════════════════════════════════════════
-const playerMesh=new THREE.Group(); scene.add(playerMesh);
-
 function mkBox(w,h,d,col){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
   m.castShadow=true; return m;
 }
-const pBody=mkBox(.7,1,.4,0x2a3a5a); pBody.position.y=.9; playerMesh.add(pBody);
-const pHead=mkBox(.44,.44,.44,0xc49060); pHead.position.y=1.62; playerMesh.add(pHead);
-// Arms use pivot groups so rotation happens at the shoulder (top of arm).
-const pArmLPivot=new THREE.Group(); pArmLPivot.position.set(-.48,1.1,-.05); playerMesh.add(pArmLPivot);
-const pArmL=mkBox(.2,.5,.2,0x2a3a5a); pArmL.position.set(0,-.25,0); pArmLPivot.add(pArmL);
-const pArmRPivot=new THREE.Group(); pArmRPivot.position.set(.48,1.1,-.05); playerMesh.add(pArmRPivot);
-const pArmR=mkBox(.2,.5,.2,0x2a3a5a); pArmR.position.set(0,-.25,0); pArmRPivot.add(pArmR);
-// Legs use a pivot group so rotation happens at the hip (top of leg), not the center.
-// This prevents the upper half of the leg from clipping into the torso when swinging.
-const pLegLPivot=new THREE.Group(); pLegLPivot.position.set(-.2,.625,0); playerMesh.add(pLegLPivot);
-const pLegL=mkBox(.25,.65,.25,0x1a2a3a); pLegL.position.set(0,-.325,0); pLegLPivot.add(pLegL);
-const pLegRPivot=new THREE.Group(); pLegRPivot.position.set(.2,.625,0); playerMesh.add(pLegRPivot);
-const pLegR=mkBox(.25,.65,.25,0x1a2a3a); pLegR.position.set(0,-.325,0); pLegRPivot.add(pLegR);
+
+// All builders return: { group, legLPivot, legRPivot, armLPivot, armRPivot }
+// Structure: torso ends at hip line (y=0.625), legs pivot there, arms pivot at shoulder (y=1.1)
+
+function buildSoldierMesh(){
+  const g = new THREE.Group();
+  const skin = 0xc49060;
+
+  // ── Torso: olive undershirt + tactical vest ──
+  const torso = mkBox(.7, 1, .4, 0x4a5a3a);       // olive undershirt (pBody ref)
+  torso.position.y = .9; g.add(torso);
+  // Tactical vest overlay (slightly wider)
+  const vest = mkBox(.74, .7, .44, 0x3a4a32);
+  vest.position.y = 1.0; g.add(vest);
+  // Vest pouches (front)
+  for(const vx of [-.22, 0, .22]){
+    const pouch = mkBox(.16, .15, .06, 0x2a3a22);
+    pouch.position.set(vx, .78, -.24); g.add(pouch);
+  }
+  // Belt
+  const belt = mkBox(.72, .1, .42, 0x2a2218);
+  belt.position.y = .5; g.add(belt);
+  // Belt buckle
+  const buckle = mkBox(.08, .08, .04, 0x888866);
+  buckle.position.set(0, .5, -.23); g.add(buckle);
+  // Side holster (right hip)
+  const holster = mkBox(.12, .2, .14, 0x2a2218);
+  holster.position.set(.4, .48, 0); g.add(holster);
+
+  // ── Head: skin + helmet ──
+  const head = mkBox(.44, .38, .44, skin);
+  head.position.y = 1.58; g.add(head);
+  // Helmet
+  const helmet = mkBox(.52, .28, .52, 0x4a5a3a);
+  helmet.position.y = 1.78; g.add(helmet);
+  // Helmet rim (front brim)
+  const helmRim = mkBox(.54, .06, .14, 0x4a5a3a);
+  helmRim.position.set(0, 1.66, -.25); g.add(helmRim);
+  // Helmet strap
+  const strap = mkBox(.06, .04, .48, 0x3a4a32);
+  strap.position.set(0, 1.56, 0); g.add(strap);
+
+  // ── Legs: cargo pants + knee pads + combat boots ──
+  const legLPivot = new THREE.Group(); legLPivot.position.set(-.2, .625, 0); g.add(legLPivot);
+  const legL = mkBox(.25, .38, .25, 0x4a5a3a);    // upper leg (cargo pant)
+  legL.position.set(0, -.19, 0); legLPivot.add(legL);
+  const kneePadL = mkBox(.14, .1, .08, 0x3a3a3a);  // knee pad
+  kneePadL.position.set(0, -.35, -.14); legLPivot.add(kneePadL);
+  const bootL = mkBox(.26, .28, .3, 0x1a1a1a);     // combat boot
+  bootL.position.set(0, -.52, .01); legLPivot.add(bootL);
+  // Cargo pocket
+  const pocketL = mkBox(.08, .1, .06, 0x3a4a2a);
+  pocketL.position.set(.14, -.15, 0); legLPivot.add(pocketL);
+
+  const legRPivot = new THREE.Group(); legRPivot.position.set(.2, .625, 0); g.add(legRPivot);
+  const legR = mkBox(.25, .38, .25, 0x4a5a3a);
+  legR.position.set(0, -.19, 0); legRPivot.add(legR);
+  const kneePadR = mkBox(.14, .1, .08, 0x3a3a3a);
+  kneePadR.position.set(0, -.35, -.14); legRPivot.add(kneePadR);
+  const bootR = mkBox(.26, .28, .3, 0x1a1a1a);
+  bootR.position.set(0, -.52, .01); legRPivot.add(bootR);
+  const pocketR = mkBox(.08, .1, .06, 0x3a4a2a);
+  pocketR.position.set(-.14, -.15, 0); legRPivot.add(pocketR);
+
+  // ── Arms: short sleeve + skin forearm + gloves ──
+  const armLPivot = new THREE.Group(); armLPivot.position.set(-.48, 1.1, -.05); g.add(armLPivot);
+  const upperArmL = mkBox(.2, .26, .2, 0x4a5a3a);  // sleeve
+  upperArmL.position.set(0, -.13, 0); armLPivot.add(upperArmL);
+  const foreArmL = mkBox(.18, .2, .18, skin);        // skin
+  foreArmL.position.set(0, -.36, 0); armLPivot.add(foreArmL);
+  const gloveL = mkBox(.16, .08, .16, 0x2a2a2a);    // glove
+  gloveL.position.set(0, -.48, 0); armLPivot.add(gloveL);
+
+  const armRPivot = new THREE.Group(); armRPivot.position.set(.48, 1.1, -.05); g.add(armRPivot);
+  const upperArmR = mkBox(.2, .26, .2, 0x4a5a3a);
+  upperArmR.position.set(0, -.13, 0); armRPivot.add(upperArmR);
+  const foreArmR = mkBox(.18, .2, .18, skin);
+  foreArmR.position.set(0, -.36, 0); armRPivot.add(foreArmR);
+  const gloveR = mkBox(.16, .08, .16, 0x2a2a2a);
+  gloveR.position.set(0, -.48, 0); armRPivot.add(gloveR);
+
+  return { group:g, body:torso, head, legLPivot, legRPivot, armLPivot, armRPivot };
+}
+
+function buildScavengerMesh(){
+  const g = new THREE.Group();
+  const skin = 0xd4a070;
+
+  // ── Torso: grey tee + patched brown jacket (upper only — coat tails on legs) ──
+  const tee = mkBox(.62, .95, .36, 0x6a6a6a);      // grey undershirt
+  tee.position.y = .9; g.add(tee);
+  // Jacket overlay (stops at hip line!)
+  const jacket = mkBox(.68, .58, .40, 0x6a4a2a);
+  jacket.position.y = 1.05; g.add(jacket);
+  // Jacket collar (popped)
+  const collarL = mkBox(.12, .16, .14, 0x6a4a2a);
+  collarL.position.set(-.28, 1.42, -.08); collarL.rotation.z = .2; g.add(collarL);
+  const collarR = mkBox(.12, .16, .14, 0x6a4a2a);
+  collarR.position.set(.28, 1.42, -.08); collarR.rotation.z = -.2; g.add(collarR);
+  // Patches (colored squares on jacket)
+  const patch1 = mkBox(.12, .1, .02, 0x884433);
+  patch1.position.set(-.2, 1.1, -.21); g.add(patch1);
+  const patch2 = mkBox(.1, .12, .02, 0x446644);
+  patch2.position.set(.15, .9, -.21); g.add(patch2);
+  const patch3 = mkBox(.14, .08, .02, 0xaa8844);
+  patch3.position.set(.24, 1.15, -.21); g.add(patch3);
+  // Belt with pouches
+  const sbelt = mkBox(.64, .08, .38, 0x5a4a30);
+  sbelt.position.y = .52; g.add(sbelt);
+  const beltPouch = mkBox(.14, .12, .1, 0x5a4a30);
+  beltPouch.position.set(-.32, .48, -.16); g.add(beltPouch);
+
+  // ── Head: skin + messy hair ──
+  const head = mkBox(.42, .42, .42, skin);
+  head.position.y = 1.6; g.add(head);
+  // Messy ponytail/hair (3 offset boxes)
+  const hair1 = mkBox(.44, .2, .3, 0x5a3a1a);
+  hair1.position.set(0, 1.82, .04); g.add(hair1);
+  const hair2 = mkBox(.3, .22, .2, 0x5a3a1a);
+  hair2.position.set(.06, 1.9, .1); hair2.rotation.z = -.15; g.add(hair2);
+  const hair3 = mkBox(.14, .25, .14, 0x5a3a1a);     // ponytail tuft
+  hair3.position.set(0, 1.88, .24); hair3.rotation.x = .3; g.add(hair3);
+  // Scar on face (thin dark line)
+  const scar = mkBox(.02, .14, .02, 0x8a5a4a);
+  scar.position.set(.1, 1.58, -.22); scar.rotation.z = .3; g.add(scar);
+
+  // ── Legs: torn jeans + sneakers + jacket tails ──
+  const legLPivot = new THREE.Group(); legLPivot.position.set(-.18, .625, 0); g.add(legLPivot);
+  const legL = mkBox(.24, .35, .24, 0x3a5a8a);     // blue jeans
+  legL.position.set(0, -.18, 0); legLPivot.add(legL);
+  // Jacket tail (flap attached to leg — moves with walk!)
+  const tailL = mkBox(.14, .18, .12, 0x6a4a2a);
+  tailL.position.set(-.06, .04, -.06); legLPivot.add(tailL);
+  // Torn patch on knee
+  const tornL = mkBox(.1, .06, .04, 0x4a6a9a);
+  tornL.position.set(0, -.32, -.13); legLPivot.add(tornL);
+  const sneakerL = mkBox(.24, .2, .3, 0x993333);    // red sneakers
+  sneakerL.position.set(0, -.48, .02); legLPivot.add(sneakerL);
+  // Sneaker sole
+  const soleL = mkBox(.24, .04, .32, 0x222222);
+  soleL.position.set(0, -.56, .02); legLPivot.add(soleL);
+
+  const legRPivot = new THREE.Group(); legRPivot.position.set(.18, .625, 0); g.add(legRPivot);
+  const legR = mkBox(.24, .35, .24, 0x3a5a8a);
+  legR.position.set(0, -.18, 0); legRPivot.add(legR);
+  const tailR = mkBox(.14, .18, .12, 0x6a4a2a);
+  tailR.position.set(.06, .04, -.06); legRPivot.add(tailR);
+  const tornR = mkBox(.1, .06, .04, 0x4a6a9a);
+  tornR.position.set(0, -.28, -.13); legRPivot.add(tornR);
+  const sneakerR = mkBox(.24, .2, .3, 0x993333);
+  sneakerR.position.set(0, -.48, .02); legRPivot.add(sneakerR);
+  const soleR = mkBox(.24, .04, .32, 0x222222);
+  soleR.position.set(0, -.56, .02); legRPivot.add(soleR);
+
+  // ── Arms: jacket sleeves + fingerless gloves ──
+  const armLPivot = new THREE.Group(); armLPivot.position.set(-.46, 1.1, -.05); g.add(armLPivot);
+  const sleeveL = mkBox(.2, .28, .2, 0x6a4a2a);
+  sleeveL.position.set(0, -.14, 0); armLPivot.add(sleeveL);
+  const fArmL = mkBox(.17, .18, .17, skin);
+  fArmL.position.set(0, -.36, 0); armLPivot.add(fArmL);
+  const fGloveL = mkBox(.15, .06, .15, 0x3a3a3a);  // fingerless glove
+  fGloveL.position.set(0, -.46, 0); armLPivot.add(fGloveL);
+
+  const armRPivot = new THREE.Group(); armRPivot.position.set(.46, 1.1, -.05); g.add(armRPivot);
+  const sleeveR = mkBox(.2, .28, .2, 0x6a4a2a);
+  sleeveR.position.set(0, -.14, 0); armRPivot.add(sleeveR);
+  const fArmR = mkBox(.17, .18, .17, skin);
+  fArmR.position.set(0, -.36, 0); armRPivot.add(fArmR);
+  const fGloveR = mkBox(.15, .06, .15, 0x3a3a3a);
+  fGloveR.position.set(0, -.46, 0); armRPivot.add(fGloveR);
+
+  return { group:g, body:tee, head, legLPivot, legRPivot, armLPivot, armRPivot };
+}
+
+function buildMechanicMesh(){
+  const g = new THREE.Group();
+  const skin = 0xc49060;
+
+  // ── Torso: green coveralls + metal shoulder pad ──
+  const coveralls = mkBox(.68, 1, .38, 0x4a5a3a);
+  coveralls.position.y = .9; g.add(coveralls);
+  // Name patch on chest
+  const namePatch = mkBox(.2, .1, .02, 0xcccc99);
+  namePatch.position.set(.15, 1.15, -.2); g.add(namePatch);
+  // Oil stains (dark spots)
+  const stain1 = mkBox(.12, .14, .02, 0x2a3a1a);
+  stain1.position.set(-.2, .85, -.2); g.add(stain1);
+  const stain2 = mkBox(.1, .1, .02, 0x2a3a1a);
+  stain2.position.set(.08, .7, -.2); g.add(stain2);
+  // Metal shoulder pad (left)
+  const shoulderPad = mkBox(.28, .12, .28, 0x777777);
+  shoulderPad.position.set(-.44, 1.28, 0); g.add(shoulderPad);
+  const shoulderRivet1 = mkBox(.04, .04, .04, 0xaaaaaa);
+  shoulderRivet1.position.set(-.44, 1.28, -.12); g.add(shoulderRivet1);
+  const shoulderRivet2 = mkBox(.04, .04, .04, 0xaaaaaa);
+  shoulderRivet2.position.set(-.44, 1.28, .12); g.add(shoulderRivet2);
+  // Tool belt
+  const tbelt = mkBox(.7, .1, .4, 0x5a4a30);
+  tbelt.position.y = .48; g.add(tbelt);
+  // Wrench on belt
+  const wrench = mkBox(.04, .18, .04, 0x777777);
+  wrench.position.set(.36, .44, -.14); wrench.rotation.z = .2; g.add(wrench);
+
+  // ── Head: skin + goggles on forehead + messy hair ──
+  const head = mkBox(.44, .42, .42, skin);
+  head.position.y = 1.6; g.add(head);
+  // Short messy hair
+  const hair = mkBox(.42, .14, .36, 0x5a3a1a);
+  hair.position.set(0, 1.84, .04); g.add(hair);
+  const hairTuft = mkBox(.16, .12, .12, 0x5a3a1a);
+  hairTuft.position.set(.12, 1.9, -.06); hairTuft.rotation.z = -.2; g.add(hairTuft);
+  // Goggles on forehead
+  const gogBand = mkBox(.46, .06, .06, 0x3a3a3a);
+  gogBand.position.set(0, 1.76, -.22); g.add(gogBand);
+  const gogL = mkBox(.12, .1, .08, 0x225533);       // green lens
+  gogL.position.set(-.12, 1.74, -.24); g.add(gogL);
+  const gogR = mkBox(.12, .1, .08, 0x225533);
+  gogR.position.set(.12, 1.74, -.24); g.add(gogR);
+  // Grin/jaw detail
+  const jaw = mkBox(.3, .06, .08, 0xb08050);
+  jaw.position.set(0, 1.42, -.2); g.add(jaw);
+
+  // ── Legs: coverall pants + work boots ──
+  const legLPivot = new THREE.Group(); legLPivot.position.set(-.2, .625, 0); g.add(legLPivot);
+  const legL = mkBox(.25, .38, .25, 0x4a5a3a);
+  legL.position.set(0, -.19, 0); legLPivot.add(legL);
+  const wBootL = mkBox(.26, .26, .3, 0x3a2a18);    // brown work boot
+  wBootL.position.set(0, -.5, .02); legLPivot.add(wBootL);
+  const bootCapL = mkBox(.2, .08, .1, 0x777777);    // steel toe cap
+  bootCapL.position.set(0, -.56, -.12); legLPivot.add(bootCapL);
+
+  const legRPivot = new THREE.Group(); legRPivot.position.set(.2, .625, 0); g.add(legRPivot);
+  const legR = mkBox(.25, .38, .25, 0x4a5a3a);
+  legR.position.set(0, -.19, 0); legRPivot.add(legR);
+  const wBootR = mkBox(.26, .26, .3, 0x3a2a18);
+  wBootR.position.set(0, -.5, .02); legRPivot.add(wBootR);
+  const bootCapR = mkBox(.2, .08, .1, 0x777777);
+  bootCapR.position.set(0, -.56, -.12); legRPivot.add(bootCapR);
+
+  // ── Arms: rolled-up sleeves + metal brace on right arm ──
+  const armLPivot = new THREE.Group(); armLPivot.position.set(-.48, 1.1, -.05); g.add(armLPivot);
+  const slvL = mkBox(.2, .16, .2, 0x4a5a3a);       // rolled sleeve
+  slvL.position.set(0, -.08, 0); armLPivot.add(slvL);
+  const skinL = mkBox(.18, .26, .18, skin);          // bare forearm
+  skinL.position.set(0, -.3, 0); armLPivot.add(skinL);
+  const gloveMechL = mkBox(.16, .08, .16, 0x5a4a30);
+  gloveMechL.position.set(0, -.46, 0); armLPivot.add(gloveMechL);
+
+  const armRPivot = new THREE.Group(); armRPivot.position.set(.48, 1.1, -.05); g.add(armRPivot);
+  const slvR = mkBox(.2, .16, .2, 0x4a5a3a);
+  slvR.position.set(0, -.08, 0); armRPivot.add(slvR);
+  const skinR = mkBox(.18, .22, .18, skin);
+  skinR.position.set(0, -.26, 0); armRPivot.add(skinR);
+  // Metal arm brace
+  const brace = mkBox(.22, .14, .22, 0x777777);
+  brace.position.set(0, -.38, 0); armRPivot.add(brace);
+  const braceRivet = mkBox(.04, .04, .04, 0xaaaaaa);
+  braceRivet.position.set(.1, -.38, -.08); armRPivot.add(braceRivet);
+  const gloveMechR = mkBox(.16, .08, .16, 0x5a4a30);
+  gloveMechR.position.set(0, -.48, 0); armRPivot.add(gloveMechR);
+
+  return { group:g, body:coveralls, head, legLPivot, legRPivot, armLPivot, armRPivot };
+}
+
+function buildMedicMesh(){
+  const g = new THREE.Group();
+  const skin = 0xd4a070;
+
+  // ── Torso: khaki shirt + tactical vest with red cross ──
+  const shirt = mkBox(.62, .95, .36, 0x8a8a6a);     // khaki shirt
+  shirt.position.y = .9; g.add(shirt);
+  // Tactical vest
+  const mVest = mkBox(.66, .6, .40, 0x5a6a4a);
+  mVest.position.y = 1.0; g.add(mVest);
+  // Red cross on vest (front)
+  const crossH = mkBox(.18, .06, .02, 0xcc2222);
+  crossH.position.set(0, 1.05, -.21); g.add(crossH);
+  const crossV = mkBox(.06, .18, .02, 0xcc2222);
+  crossV.position.set(0, 1.05, -.21); g.add(crossV);
+  // Vest pouches
+  const mPouch1 = mkBox(.14, .12, .06, 0x4a5a3a);
+  mPouch1.position.set(-.22, .82, -.21); g.add(mPouch1);
+  const mPouch2 = mkBox(.14, .12, .06, 0x4a5a3a);
+  mPouch2.position.set(.22, .82, -.21); g.add(mPouch2);
+  // Utility belt
+  const mBelt = mkBox(.64, .08, .38, 0x4a4a3a);
+  mBelt.position.y = .5; g.add(mBelt);
+  // Med backpack (red, on the back)
+  const backpack = mkBox(.4, .5, .26, 0xcc3333);
+  backpack.position.set(0, 1.0, .26); g.add(backpack);
+  // White cross on backpack
+  const bpCrossH = mkBox(.14, .04, .02, 0xffffff);
+  bpCrossH.position.set(0, 1.05, .4); g.add(bpCrossH);
+  const bpCrossV = mkBox(.04, .14, .02, 0xffffff);
+  bpCrossV.position.set(0, 1.05, .4); g.add(bpCrossV);
+  // Backpack straps
+  const strapL = mkBox(.06, .4, .04, 0xaa2222);
+  strapL.position.set(-.16, 1.1, .04); g.add(strapL);
+  const strapR = mkBox(.06, .4, .04, 0xaa2222);
+  strapR.position.set(.16, 1.1, .04); g.add(strapR);
+
+  // ── Head: skin + ponytail ──
+  const head = mkBox(.42, .42, .42, skin);
+  head.position.y = 1.6; g.add(head);
+  // Hair (short on top)
+  const hairTop = mkBox(.40, .12, .34, 0x4a2a14);
+  hairTop.position.set(0, 1.82, .02); g.add(hairTop);
+  // Ponytail (small box sticking out back)
+  const pony = mkBox(.12, .12, .2, 0x4a2a14);
+  pony.position.set(0, 1.72, .3); pony.rotation.x = .3; g.add(pony);
+  const ponyTip = mkBox(.08, .08, .14, 0x4a2a14);
+  ponyTip.position.set(0, 1.64, .38); ponyTip.rotation.x = .5; g.add(ponyTip);
+
+  // ── Legs: cargo pants + tactical boots ──
+  const legLPivot = new THREE.Group(); legLPivot.position.set(-.18, .625, 0); g.add(legLPivot);
+  const legL = mkBox(.24, .38, .24, 0x7a7a5a);     // khaki pants
+  legL.position.set(0, -.19, 0); legLPivot.add(legL);
+  const tBootL = mkBox(.25, .24, .28, 0x1a1a1a);    // black boot
+  tBootL.position.set(0, -.5, .01); legLPivot.add(tBootL);
+
+  const legRPivot = new THREE.Group(); legRPivot.position.set(.18, .625, 0); g.add(legRPivot);
+  const legR = mkBox(.24, .38, .24, 0x7a7a5a);
+  legR.position.set(0, -.19, 0); legRPivot.add(legR);
+  const tBootR = mkBox(.25, .24, .28, 0x1a1a1a);
+  tBootR.position.set(0, -.5, .01); legRPivot.add(tBootR);
+
+  // ── Arms: shirt sleeves + forearm ──
+  const armLPivot = new THREE.Group(); armLPivot.position.set(-.44, 1.1, -.05); g.add(armLPivot);
+  const mSlvL = mkBox(.19, .26, .19, 0x5a6a4a);    // vest-colored sleeve
+  mSlvL.position.set(0, -.13, 0); armLPivot.add(mSlvL);
+  const mForeL = mkBox(.17, .2, .17, skin);
+  mForeL.position.set(0, -.35, 0); armLPivot.add(mForeL);
+  const mGloveL = mkBox(.15, .06, .15, 0x4a4a3a);
+  mGloveL.position.set(0, -.47, 0); armLPivot.add(mGloveL);
+
+  const armRPivot = new THREE.Group(); armRPivot.position.set(.44, 1.1, -.05); g.add(armRPivot);
+  const mSlvR = mkBox(.19, .26, .19, 0x5a6a4a);
+  mSlvR.position.set(0, -.13, 0); armRPivot.add(mSlvR);
+  const mForeR = mkBox(.17, .2, .17, skin);
+  mForeR.position.set(0, -.35, 0); armRPivot.add(mForeR);
+  const mGloveR = mkBox(.15, .06, .15, 0x4a4a3a);
+  mGloveR.position.set(0, -.47, 0); armRPivot.add(mGloveR);
+
+  return { group:g, body:shirt, head, legLPivot, legRPivot, armLPivot, armRPivot };
+}
+
+// Master builder — returns character mesh parts by id
+function buildCharacterMesh(charId){
+  switch(charId){
+    case 'scavenger': return buildScavengerMesh();
+    case 'mechanic':  return buildMechanicMesh();
+    case 'medic':     return buildMedicMesh();
+    default:          return buildSoldierMesh();
+  }
+}
+
+// ══════════════════════════════════════════════════
+// PLAYER MESH
+// ══════════════════════════════════════════════════
+const playerMesh=new THREE.Group(); scene.add(playerMesh);
+
+// Build initial local player from selected character
+let pArmLPivot, pArmRPivot, pLegLPivot, pLegRPivot;
+let pBody, pHead;  // first torso + head mesh refs (for body bob/tilt animation)
+function rebuildLocalPlayerMesh(){
+  // Remove old parts (keep gunGrp if it exists)
+  while(playerMesh.children.length) playerMesh.remove(playerMesh.children[0]);
+  const parts = buildCharacterMesh(selectedCharId);
+  // Add character group contents directly to playerMesh
+  while(parts.group.children.length) playerMesh.add(parts.group.children[0]);
+  pLegLPivot = parts.legLPivot;
+  pLegRPivot = parts.legRPivot;
+  pArmLPivot = parts.armLPivot;
+  pArmRPivot = parts.armRPivot;
+  // pBody = first Mesh child (torso), pHead = second Mesh child (head)
+  pBody = parts.body;
+  pHead = parts.head;
+  // Re-add gun group
+  if(typeof gunGrp !== 'undefined') playerMesh.add(gunGrp);
+}
+// Initial build (default soldier)
+(function(){
+  const parts = buildCharacterMesh(selectedCharId);
+  while(parts.group.children.length) playerMesh.add(parts.group.children[0]);
+  pLegLPivot = parts.legLPivot;
+  pLegRPivot = parts.legRPivot;
+  pArmLPivot = parts.armLPivot;
+  pArmRPivot = parts.armRPivot;
+  pBody = parts.body;
+  pHead = parts.head;
+})();
 
 const gunGrp=new THREE.Group(); gunGrp.position.copy(GUN_POS_HIP);
 // Container for all weapon parts — will be rebuilt per weapon
@@ -3227,6 +3895,14 @@ function buildFPWeapon(){
     fpGunGrp.position.set(.2, -.2, -.4);
     fpArmR.position.set(.24, -.22, -.3);
     fpArmL.position.set(-.2, -.3, -.35);
+  } else if(key === 'reaper'){
+    fpGunGrp.position.set(.2, -.2, -.48);
+    fpArmR.position.set(.3, -.22, -.3);
+    fpArmL.position.set(-.1, -.3, -.4);
+  } else if(key === 'raygun'){
+    fpGunGrp.position.set(.2, -.2, -.45);
+    fpArmR.position.set(.26, -.24, -.32);
+    fpArmL.position.set(-.16, -.3, -.45);
   } else if(key === 'fists'){
     fpGunGrp.position.set(.0, -.18, -.35);
     fpArmR.position.set(.2, -.2, -.3);
@@ -3571,6 +4247,65 @@ function buildWeaponModel(key, color, isPacked){
       // Grip
       bx(.06,.1,.06,dark,0,-.07,.06);
       break;
+    case 'reaper':
+      // ═══ THE REAPER — Electric Chain Gun ═══
+      // Main body housing (wide, chunky)
+      bx(.12,.1,.38,0x333344,0,.02,-.06);
+      // Top rail
+      bx(.05,.02,.28,dark,0,.08,-.06);
+      // 3 rotating barrels
+      for(let bi=0;bi<3;bi++){
+        const angle=(bi/3)*Math.PI*2;
+        cyl(.018,.45,metal, Math.cos(angle)*0.035, .03+Math.sin(angle)*0.035, -.38, Math.PI/2);
+      }
+      // Barrel housing ring
+      cyl(.06,.04,dark,0,.03,-.15,Math.PI/2);
+      // Electric coil rings (glowing cyan)
+      for(let ci=0;ci<3;ci++){
+        const coilC = isPacked ? 0x88eeff : 0x00ccff;
+        bx(.14,.14,.012,coilC,0,.03,-.2-ci*0.1,coilC);
+      }
+      // Energy cell on top
+      bx(.04,.05,.08,isPacked?0x88eeff:0x00ccff,0,.1,-.15,isPacked?0x88eeff:0x00ccff);
+      // Grip
+      bx(.06,.12,.06,dark,0,-.07,.08);
+      // Rear handle/stock brace
+      bx(.06,.06,.14,0x333344,0,0,.2);
+      // Muzzle tip glow
+      cyl(.04,.03,isPacked?0x88eeff:0x00ccff,0,.03,-.6,Math.PI/2,0,0,isPacked?0x88eeff:0x00ccff);
+      break;
+    case 'raygun':
+      // ═══ RAY GUN — retro sci-fi pistol ═══
+      {
+        const rgGlow = isPacked ? 0x44ff88 : 0x00ff44;
+        // Main receiver body (chunky sci-fi shape)
+        bx(.1,.09,.3,0x224433,0,.02,-.04);
+        // Wide barrel with taper
+        bx(.08,.07,.2,0x224433,0,.03,-.26);
+        // Flared muzzle (glowing)
+        bx(.12,.1,.05,rgGlow,0,.03,-.4,rgGlow);
+        // Inner muzzle ring
+        bx(.06,.05,.02,0x115522,0,.03,-.38);
+        // Energy cell housing (glowing green dome on top)
+        bx(.06,.07,.1,rgGlow,0,.09,-.08,rgGlow);
+        // Cell glass cap
+        bx(.04,.02,.08,0xaaffbb,.0,.13,-.08);
+        // Side vents (left and right)
+        for(let si=-1;si<=1;si+=2){
+          bx(.015,.04,.06,rgGlow,si*0.055,.02,-.15,rgGlow);
+          bx(.015,.04,.06,rgGlow,si*0.055,.02,-.25,rgGlow);
+        }
+        // Grip (angular)
+        bx(.07,.12,.07,dark,0,-.07,.06);
+        // Trigger guard
+        bx(.06,.02,.08,dark,0,-.04,0);
+        // Trigger
+        bx(.015,.04,.02,metal,0,-.04,.02);
+        // Rear fins (sci-fi style)
+        bx(.015,.08,.1,0x224433,.06,.04,.14);
+        bx(.015,.08,.1,0x224433,-.06,.04,.14);
+      }
+      break;
     default:
       // Generic fallback
       bx(.1,.1,.45,color,0,.02,-.1);
@@ -3578,7 +4313,7 @@ function buildWeaponModel(key, color, isPacked){
       bx(.06,.1,.06,color,0,-.07,.06);
   }
   // Adjust muzzle flash position per weapon
-  const muzzleZ = (key==='sniper')?-.85:(key==='rpg')?-.65:(key==='shotgun'||key==='ak47'||key==='autoshotgun')?-.65:(key==='burst')?-.62:(key==='lmg')?-.55:(key==='minigun')?-.5:-.55;
+  const muzzleZ = (key==='sniper')?-.85:(key==='rpg')?-.65:(key==='shotgun'||key==='ak47'||key==='autoshotgun')?-.65:(key==='burst')?-.62:(key==='lmg')?-.55:(key==='minigun')?-.5:(key==='reaper')?-.65:(key==='raygun')?-.45:-.55;
   muzzleFL.position.set(0,.03,muzzleZ);
 }
 
@@ -4027,7 +4762,7 @@ function spawnBullet(burstCont){
   muzzleSpark(muzzleWorldPos);
 
   // Per-weapon shoot shake
-  const _shootShake = {fists:0,knife:0,pistol:0.02,smg:0.015,shotgun:0.08,ak47:0.03,sniper:0.06,lmg:0.04,rpg:0.12,plasma:0.025,minigun:0.018,flamethrower:0.01,burst:0.03,autoshotgun:0.06};
+  const _shootShake = {fists:0,knife:0,pistol:0.02,smg:0.015,shotgun:0.08,ak47:0.03,sniper:0.06,lmg:0.04,rpg:0.12,plasma:0.025,minigun:0.018,flamethrower:0.01,burst:0.03,autoshotgun:0.06,reaper:0.012,raygun:0.04};
   triggerShake(_shootShake[g.key]||0.02, 14);
 
   for(let p=0;p<g.pellets;p++){
@@ -4046,17 +4781,29 @@ function spawnBullet(burstCont){
     // projected along dir — stored as b.hitPos which we update each frame.
     const isSniper = (g.key==='sniper');
     const isRPG = !!g.explosive;
-    const col = g.fire ? 0xff4400 : isSniper ? (g.packed?0xff44ff:0x44ddff) : isRPG ? 0xff6600 : 0xffdd44;
-    const radius = isRPG ? 0.08 : isSniper ? 0.025 : 0.04;
-    const len = isRPG ? 0.4 : isSniper ? 0.5 : 0.22;
+    const isReaper = !!g.chain;
+    const isRaygun = !!g.splash;
+    const col = isReaper ? (g.packed?0x88eeff:0x00ccff) : isRaygun ? (g.packed?0x44ff88:0x00ff44) : g.fire ? 0xff4400 : isSniper ? (g.packed?0xff44ff:0x44ddff) : isRPG ? 0xff6600 : 0xffdd44;
+    const radius = isRPG ? 0.08 : isRaygun ? 0.07 : isReaper ? 0.03 : isSniper ? 0.025 : 0.04;
+    const len = isRPG ? 0.4 : isRaygun ? 0.3 : isReaper ? 0.35 : isSniper ? 0.5 : 0.22;
+    const bMat = new THREE.MeshBasicMaterial({color: col});
+    if(isReaper || isRaygun){ bMat.transparent=true; bMat.opacity=0.9; }
     const bm = new THREE.Mesh(
       new THREE.CylinderGeometry(radius, radius, len, 5),
-      new THREE.MeshBasicMaterial({color: col})
+      bMat
     );
     bm.rotation.x = Math.PI/2;
     // Visible mesh starts at gun muzzle
     bm.position.copy(muzzleWorldPos);
     scene.add(bm);
+    // Glow trail for wonder weapons
+    if(isReaper){
+      const glow = new THREE.PointLight(0x00ccff, 2, 6);
+      bm.add(glow);
+    } else if(isRaygun){
+      const glow = new THREE.PointLight(0x00ff44, 2.5, 8);
+      bm.add(glow);
+    }
 
     // Direction for the visible tracer: from muzzle toward the far aim point
     const farAimPt = camOrigin.clone().addScaledVector(dir, 120);
@@ -4067,8 +4814,9 @@ function spawnBullet(burstCont){
     if(g.key==='sniper')            pierce = g.packed ? 7 : 3;
     else if(g.key==='plasma')       pierce = Infinity;
     else if(g.key==='flamethrower') pierce = Infinity;
+    else if(isReaper)               pierce = Infinity; // Reaper pierces through
     const expRadius = g.explosive ? (g.packed ? 6.5 : 4) : 0;
-    const life = g.fire ? 0.45 : (g.key==='plasma') ? 1.8 : isSniper ? 2.5 : isRPG ? 3.0 : 1.4;
+    const life = g.fire ? 0.45 : (g.key==='plasma') ? 1.8 : isSniper ? 2.5 : isRPG ? 3.0 : isReaper ? 1.0 : isRaygun ? 2.0 : 1.4;
 
     bullets.push({
       mesh: bm,                     // ONE visible mesh — the tracer
@@ -4079,7 +4827,9 @@ function spawnBullet(burstCont){
       life, dmg:dmgEff, spd:g.bulletSpd,
       explosive:!!g.explosive, fire:!!g.fire,
       pierce, pierced:0, expRadius,
-      packed:!!g.packed, gunKey:g.key||''
+      packed:!!g.packed, gunKey:g.key||'',
+      chain:!!g.chain, chainCount:g.chainCount||0, chainRange:g.chainRange||0,
+      splash:!!g.splash, splashRadius:g.splashRadius||0
     });
   }
 }
@@ -4107,6 +4857,322 @@ function dodge(){
 }
 
 // ══════════════════════════════════════════════════
+// CHARACTER ABILITIES
+// ══════════════════════════════════════════════════
+function useAbility(){
+  if(abilityCooldown > 0) return;
+  const def = ABILITY_DEFS[selectedCharId];
+  if(!def) return;
+  abilityCooldown = def.cd;
+  addFeed('⚡ ' + def.name + ' activated!');
+  switch(selectedCharId){
+    case 'soldier':   activateGrenade(); break;
+    case 'scavenger': activateDecoy(); break;
+    case 'mechanic':  activateTurret(); break;
+    case 'medic':     activateHealPulse(); break;
+  }
+  // Notify multiplayer
+  if(mpMode !== 'solo' && socket){
+    socket.emit('ability_used', { charId: selectedCharId, pos: {x:pos.x, z:pos.z}, rot: camYaw });
+  }
+}
+
+// ── Soldier: Frag Grenade ──
+function activateGrenade(){
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, camYaw, 0));
+  const startPos = pos.clone().add(new THREE.Vector3(0, 1.5, 0));
+  const gMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.25, 0.25, 0.25),
+    new THREE.MeshLambertMaterial({color:0x3a4a2a})
+  );
+  gMesh.position.copy(startPos);
+  scene.add(gMesh);
+  grenadeObj = {
+    mesh: gMesh,
+    vel: dir.multiplyScalar(14).add(new THREE.Vector3(0, 6, 0)),
+    fuseT: 1.5,
+    bounced: false
+  };
+}
+
+function tickGrenade(dt){
+  if(!grenadeObj) return;
+  const g = grenadeObj;
+  g.fuseT -= dt;
+  // Physics
+  g.vel.y -= 18 * dt; // gravity
+  g.mesh.position.add(g.vel.clone().multiplyScalar(dt));
+  g.mesh.rotation.x += dt * 8;
+  g.mesh.rotation.z += dt * 5;
+  // Bounce off ground
+  if(g.mesh.position.y < 0.15){
+    g.mesh.position.y = 0.15;
+    g.vel.y = Math.abs(g.vel.y) * 0.3;
+    g.vel.x *= 0.5;
+    g.vel.z *= 0.5;
+    g.bounced = true;
+  }
+  // Explode
+  if(g.fuseT <= 0){
+    grenadeExplode(g.mesh.position);
+    scene.remove(g.mesh);
+    grenadeObj = null;
+  }
+}
+
+function grenadeExplode(ePos){
+  // Visual: big orange flash + particles
+  const flash = new THREE.PointLight(0xff6622, 8, 18);
+  flash.position.copy(ePos); flash.position.y += 0.5;
+  scene.add(flash);
+  setTimeout(()=> scene.remove(flash), 200);
+  // Explosion burst particles
+  for(let i=0; i<20; i++){
+    const sp = mkBox(0.15, 0.15, 0.15, Math.random()>0.5 ? 0xff6622 : 0xffaa44);
+    sp.position.copy(ePos);
+    scene.add(sp);
+    const vx = (Math.random()-0.5)*10, vy = Math.random()*8, vz = (Math.random()-0.5)*10;
+    const startT = performance.now();
+    (function anim(){
+      const dt2 = (performance.now()-startT)/1000;
+      if(dt2 > 0.8){ scene.remove(sp); return; }
+      sp.position.x += vx*0.016; sp.position.y += (vy-18*dt2)*0.016; sp.position.z += vz*0.016;
+      sp.scale.setScalar(1-dt2/0.8);
+      requestAnimationFrame(anim);
+    })();
+  }
+  // Play explosion sound
+  if(typeof playExplosionSfx === 'function') playExplosionSfx(true);
+  // Damage zombies in radius
+  const radius = 8;
+  const dmg = 150;
+  for(const z of zombies){
+    if(!z.alive) continue;
+    const dx = z.mesh.position.x - ePos.x;
+    const dz2 = z.mesh.position.z - ePos.z;
+    const dist = Math.sqrt(dx*dx + dz2*dz2);
+    if(dist < radius){
+      const falloff = 1 - (dist / radius) * 0.5; // 100% at center, 50% at edge
+      const actualDmg = Math.floor(dmg * falloff);
+      z.hp -= actualDmg;
+      if(z.hp <= 0 && z.alive){
+        z.alive = false;
+        z.mesh.visible = false;
+        zombsLeft--;
+        kills++; score += 100;
+        credits += 70;
+        bloodBurst(z.mesh.position, 0x880000);
+        deathBurst(z.mesh.position);
+        spawnCorpse(z.mesh);
+        tryDropPowerup(z.mesh.position);
+      }
+    }
+  }
+  updateHUD();
+}
+
+// ── Scavenger: Decoy Trap ──
+function activateDecoy(){
+  const dPos = pos.clone();
+  dPos.y = 0;
+  const dGroup = new THREE.Group();
+  // Decoy body — blinking box
+  const dBody = mkBox(0.5, 0.8, 0.5, 0xffaa00);
+  dBody.position.y = 0.4; dGroup.add(dBody);
+  // Antenna
+  const dAnt = mkBox(0.06, 0.6, 0.06, 0x666666);
+  dAnt.position.y = 1.0; dGroup.add(dAnt);
+  // Blinking light
+  const dLight = new THREE.PointLight(0xff4444, 2, 8);
+  dLight.position.y = 1.3; dGroup.add(dLight);
+  dGroup.position.copy(dPos);
+  scene.add(dGroup);
+  decoyObj = { mesh: dGroup, light: dLight, lifeT: 6, pos: dPos };
+}
+
+function tickDecoy(dt){
+  if(!decoyObj) return;
+  decoyObj.lifeT -= dt;
+  // Blink the light
+  decoyObj.light.intensity = Math.sin(decoyObj.lifeT * 12) > 0 ? 3 : 0.5;
+  // Attract zombies toward decoy
+  for(const z of zombies){
+    if(!z.alive) continue;
+    const dx = decoyObj.pos.x - z.mesh.position.x;
+    const dz2 = decoyObj.pos.z - z.mesh.position.z;
+    const dist = Math.sqrt(dx*dx + dz2*dz2);
+    if(dist < 20 && dist > 0.5){
+      // Override zombie target — move toward decoy
+      const speed = (z.speed || 2.5) * dt;
+      z.mesh.position.x += (dx / dist) * speed;
+      z.mesh.position.z += (dz2 / dist) * speed;
+      z.mesh.rotation.y = Math.atan2(dx, dz2);
+    }
+  }
+  // Expire
+  if(decoyObj.lifeT <= 0){
+    scene.remove(decoyObj.mesh);
+    decoyObj = null;
+  }
+}
+
+// ── Mechanic: Auto Turret ──
+function activateTurret(){
+  const tPos = pos.clone();
+  tPos.y = 0;
+  const tGroup = new THREE.Group();
+  // Base
+  const tBase = mkBox(0.8, 0.3, 0.8, 0x555555);
+  tBase.position.y = 0.15; tGroup.add(tBase);
+  // Body
+  const tBody2 = mkBox(0.5, 0.5, 0.5, 0x777777);
+  tBody2.position.y = 0.55; tGroup.add(tBody2);
+  // Barrel
+  const tBarrel = mkBox(0.1, 0.1, 0.6, 0x444444);
+  tBarrel.position.set(0, 0.6, -0.45); tGroup.add(tBarrel);
+  // Muzzle flash light
+  const tMuzzle = new THREE.PointLight(0xffaa44, 0, 5);
+  tMuzzle.position.set(0, 0.6, -0.8); tGroup.add(tMuzzle);
+  tGroup.position.copy(tPos);
+  scene.add(tGroup);
+  turretObj = { mesh: tGroup, barrel: tBarrel, muzzle: tMuzzle, lifeT: 10, pos: tPos, shootCD: 0 };
+}
+
+function tickTurret(dt){
+  if(!turretObj) return;
+  turretObj.lifeT -= dt;
+  turretObj.shootCD -= dt;
+  // Find nearest zombie
+  let nearest = null, nearDist = 15;
+  for(const z of zombies){
+    if(!z.alive) continue;
+    const dx = z.mesh.position.x - turretObj.pos.x;
+    const dz2 = z.mesh.position.z - turretObj.pos.z;
+    const dist = Math.sqrt(dx*dx + dz2*dz2);
+    if(dist < nearDist){ nearDist = dist; nearest = z; }
+  }
+  if(nearest){
+    // Rotate turret toward target
+    const dx = nearest.mesh.position.x - turretObj.pos.x;
+    const dz2 = nearest.mesh.position.z - turretObj.pos.z;
+    turretObj.mesh.rotation.y = Math.atan2(dx, dz2) + Math.PI;
+    // Shoot
+    if(turretObj.shootCD <= 0){
+      turretObj.shootCD = 0.3; // fire rate
+      turretObj.muzzle.intensity = 3;
+      setTimeout(()=>{ if(turretObj) turretObj.muzzle.intensity = 0; }, 60);
+      // Damage zombie
+      const dmg = 20;
+      nearest.hp -= dmg;
+      // Small blood effect
+      bloodBurst(nearest.mesh.position, 0x880000);
+      if(nearest.hp <= 0 && nearest.alive){
+        nearest.alive = false;
+        nearest.mesh.visible = false;
+        zombsLeft--;
+        kills++; score += 100;
+        credits += 70;
+        deathBurst(nearest.mesh.position);
+        spawnCorpse(nearest.mesh);
+        tryDropPowerup(nearest.mesh.position);
+        updateHUD();
+      }
+      // Turret gunshot sound (quieter)
+      if(typeof playGunSfx === 'function') playGunSfx('smg');
+    }
+  }
+  // Expire
+  if(turretObj.lifeT <= 0){
+    scene.remove(turretObj.mesh);
+    turretObj = null;
+  }
+}
+
+// ── Medic: Healing Pulse ──
+function activateHealPulse(){
+  // Heal self
+  health = Math.min(health + 100, 200);
+  updateHUD();
+  // Heal remote players (send via server)
+  if(mpMode !== 'solo' && socket){
+    socket.emit('heal_pulse', { amount: 100 });
+  }
+  // Visual: expanding green ring
+  const ring = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 0.1, 1),
+    new THREE.MeshBasicMaterial({color:0x44ff88, transparent:true, opacity:0.8})
+  );
+  ring.position.copy(pos); ring.position.y = 0.3;
+  scene.add(ring);
+  healPulseObj = { mesh: ring, t: 0 };
+  // Green screen flash
+  const flash = document.getElementById('hflash');
+  if(flash){
+    flash.style.background = 'rgba(0,255,100,0.3)';
+    flash.style.opacity = '1';
+    setTimeout(()=>{ flash.style.opacity = '0'; setTimeout(()=>{ flash.style.background = ''; },300); },200);
+  }
+}
+
+function tickHealPulse(dt){
+  if(!healPulseObj) return;
+  healPulseObj.t += dt;
+  const t = healPulseObj.t;
+  const scale = 1 + t * 16;
+  healPulseObj.mesh.scale.set(scale, 1, scale);
+  healPulseObj.mesh.material.opacity = Math.max(0, 0.8 - t * 1.2);
+  if(t > 0.8){
+    scene.remove(healPulseObj.mesh);
+    healPulseObj = null;
+  }
+}
+
+// ── Ability tick (called from main game loop) ──
+function tickAbilities(dt){
+  if(abilityCooldown > 0) abilityCooldown -= dt;
+  if(abilityCooldown < 0) abilityCooldown = 0;
+  tickGrenade(dt);
+  tickDecoy(dt);
+  tickTurret(dt);
+  tickHealPulse(dt);
+  // Update HUD
+  updateAbilityHUD();
+}
+
+function updateAbilityHUD(){
+  const el = document.getElementById('abilityHud');
+  if(!el) return;
+  const def = ABILITY_DEFS[selectedCharId];
+  if(!def){ el.style.display='none'; return; }
+  el.style.display = 'block';
+  document.getElementById('abilityIcon').textContent = def.icon;
+  document.getElementById('abilityName').textContent = def.name;
+  const cdText = document.getElementById('abilityCdText');
+  const circle = document.getElementById('abilityCdCircle');
+  if(abilityCooldown > 0){
+    cdText.textContent = Math.ceil(abilityCooldown);
+    const pct = abilityCooldown / def.cd;
+    circle.style.strokeDashoffset = (138.2 * (1-pct)).toString();
+    circle.style.stroke = '#ff4444';
+  } else {
+    cdText.textContent = 'RDY';
+    circle.style.strokeDashoffset = '0';
+    circle.style.stroke = '#44ff88';
+  }
+}
+
+// Clean up abilities on game reset
+function resetAbilities(){
+  abilityCooldown = 0;
+  if(grenadeObj){ scene.remove(grenadeObj.mesh); grenadeObj = null; }
+  if(decoyObj){ scene.remove(decoyObj.mesh); decoyObj = null; }
+  if(turretObj){ scene.remove(turretObj.mesh); turretObj = null; }
+  if(healPulseObj){ scene.remove(healPulseObj.mesh); healPulseObj = null; }
+  const el = document.getElementById('abilityHud');
+  if(el) el.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════
 // PARTICLES
 // ══════════════════════════════════════════════════
 function bloodBurst(p,col){
@@ -4127,6 +5193,110 @@ function explosionBurst(p){
   }
   const el=new THREE.PointLight(0xff4400,8,12); el.position.copy(p); scene.add(el);
   setTimeout(()=>scene.remove(el),300);
+}
+
+// ── Ray Gun splash burst (green energy explosion) ──
+function raygunSplashBurst(p, packed){
+  const colors = packed ? [0x44ff88,0x88ffbb,0x22dd66] : [0x00ff44,0x44ffaa,0x00cc33];
+  for(let i=0;i<14;i++){
+    const col=colors[i%3];
+    const pt=new THREE.Mesh(new THREE.BoxGeometry(.15,.15,.15),new THREE.MeshBasicMaterial({color:col,transparent:true}));
+    pt.position.copy(p); scene.add(pt);
+    particles.push({mesh:pt,vel:new THREE.Vector3((Math.random()-.5)*10,Math.random()*6+2,(Math.random()-.5)*10),life:.6});
+  }
+  // Green shockwave ring
+  const ringGeo = new THREE.RingGeometry(0.1, 0.4, 24);
+  const ringMat = new THREE.MeshBasicMaterial({color: packed?0x44ff88:0x00ff44, transparent:true, opacity:0.8, side:THREE.DoubleSide});
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.copy(p); ring.position.y += 0.1;
+  ring.rotation.x = -Math.PI/2;
+  scene.add(ring);
+  let ringScale = 1;
+  const ringInt = setInterval(()=>{
+    ringScale += 1.2;
+    ring.scale.set(ringScale, ringScale, 1);
+    ringMat.opacity -= 0.06;
+    if(ringMat.opacity <= 0){ clearInterval(ringInt); scene.remove(ring); }
+  }, 25);
+  const gl=new THREE.PointLight(packed?0x44ff88:0x00ff44,6,10); gl.position.copy(p); scene.add(gl);
+  setTimeout(()=>scene.remove(gl),250);
+}
+
+// ── Chain Lightning (The Reaper) — arcs from target to nearby zombies ──
+function chainLightningArc(startZombie, baseDmg, jumpsLeft, range, hitSet, packed){
+  let current = startZombie;
+  let dmg = Math.floor(baseDmg * 0.7); // chain damage falloff
+  for(let j = 0; j < jumpsLeft; j++){
+    // Find nearest alive zombie within range that hasn't been hit
+    let nearest = null, nearDist = range;
+    const cPos = current.mesh.position;
+    for(const z of zombies){
+      if(!z.alive || z === current || hitSet.has(z)) continue;
+      const d = cPos.distanceTo(z.mesh.position);
+      if(d < nearDist){ nearest = z; nearDist = d; }
+    }
+    if(!nearest) break;
+    // Draw lightning arc between current and nearest
+    drawLightningBolt(
+      cPos.clone().add(new THREE.Vector3(0,1,0)),
+      nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)),
+      packed ? 0x88eeff : 0x00ccff
+    );
+    // Damage the chained zombie
+    const chainDmg = Math.floor(dmg);
+    bloodBurst(nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)), 0x00ccff);
+    dmgPop(nearest.mesh.position.clone().add(new THREE.Vector3(0,2,0)), chainDmg, false);
+    if(mpMode==='client'){
+      const zIdx = zombies.indexOf(nearest);
+      socket.emit('client_zombie_hit',{indices:[zIdx],dmg:chainDmg,explosive:false});
+    } else {
+      damageZombie(nearest, chainDmg);
+    }
+    hitSet.add(nearest);
+    current = nearest;
+    dmg = Math.floor(dmg * 0.8); // each jump does less
+  }
+}
+
+// ── Draw a jagged lightning bolt between two points ──
+const _lightningBolts = [];
+function drawLightningBolt(from, to, color){
+  const pts = [from.clone()];
+  const segments = 6;
+  const delta = to.clone().sub(from);
+  for(let i = 1; i < segments; i++){
+    const t = i / segments;
+    const p = from.clone().add(delta.clone().multiplyScalar(t));
+    p.x += (Math.random()-0.5)*0.8;
+    p.y += (Math.random()-0.5)*0.4;
+    p.z += (Math.random()-0.5)*0.8;
+    pts.push(p);
+  }
+  pts.push(to.clone());
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({color: color, linewidth:2, transparent:true, opacity:1.0});
+  const line = new THREE.Line(geo, mat);
+  scene.add(line);
+  // Glow light at midpoint
+  const mid = from.clone().add(to).multiplyScalar(0.5);
+  const gl = new THREE.PointLight(color, 3, 6);
+  gl.position.copy(mid); scene.add(gl);
+  _lightningBolts.push({line, light:gl, life:0.15});
+}
+
+function tickLightningBolts(dt){
+  for(let i=_lightningBolts.length-1; i>=0; i--){
+    const lb = _lightningBolts[i];
+    lb.life -= dt;
+    lb.line.material.opacity = Math.max(0, lb.life / 0.15);
+    if(lb.life <= 0){
+      scene.remove(lb.line);
+      scene.remove(lb.light);
+      lb.line.geometry.dispose();
+      lb.line.material.dispose();
+      _lightningBolts.splice(i, 1);
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -4879,7 +6049,7 @@ function giveGun(key){
   return true;
 }
 
-const MB_POOL=['smg','shotgun','ak47','sniper','lmg','rpg','plasma','minigun','flamethrower','burst','autoshotgun'];
+const MB_POOL=['smg','shotgun','ak47','sniper','lmg','rpg','plasma','minigun','flamethrower','burst','autoshotgun','reaper','raygun'];
 function openMysteryBox(){
   if(credits<950){ addFeed('Need 950 credits!'); return; }
   credits-=950;
@@ -5002,19 +6172,18 @@ document.addEventListener('keydown',e=>{
     equipKnife();
   }
 
+  // Ability
+  if(e.code===kb.ability){
+    useAbility();
+  }
+
   // Buy / interact
   if(e.code===kb.buy){
     tryBuy();
   }
-  // ADS via keyboard (hold Q or rebind)
-  if(e.code===kb.ads){
-    tryADS(true);
-  }
 });
 document.addEventListener('keyup',e=>{
   keys[e.code]=false;
-  // Release ADS when key released
-  if(e.code===SETTINGS.keybinds.ads) tryADS(false);
 });
 // Prevent context menu so right-click works for ADS
 document.addEventListener('contextmenu',e=>{ e.preventDefault(); });
@@ -5367,6 +6536,8 @@ function tick(dt,ts){
 
   updateBuyPrompt();
   tickPowerups(dt);
+  tickAbilities(dt);
+  tickLightningBolts(dt);
   tickMPSend(dt);
   tickRemotePlayers(dt);
   tickClientZombies(dt);
@@ -5431,12 +6602,40 @@ function tick(dt,ts){
             }
           }
           removeBullet=true;
+        } else if(b.splash){
+          // ── RAY GUN SPLASH — green energy explosion ──
+          const sR = b.splashRadius || 3.5;
+          // Green flash burst
+          raygunSplashBurst(hitPos.clone(), b.packed);
+          playSfx('raygun_hit');
+          document.getElementById('hflash').style.background='rgba(0,255,68,.12)';
+          hitFlash();
+          setTimeout(()=>document.getElementById('hflash').style.background='rgba(255,0,0,.2)',200);
+          if(mpMode==='client'){
+            const zIdxList=[];
+            for(let zi=0;zi<zombies.length;zi++){
+              if(!zombies[zi].alive) continue;
+              if(hitPos.distanceTo(zombies[zi].mesh.position)<sR) zIdxList.push(zi);
+            }
+            socket.emit('client_zombie_hit',{indices:zIdxList,dmg:b.dmg,explosive:true});
+          } else {
+            for(const z2 of zombies){
+              if(!z2.alive) continue;
+              const dist=hitPos.distanceTo(z2.mesh.position);
+              if(dist<sR){
+                const falloff = 1 - (dist / sR) * 0.4;
+                damageZombie(z2, Math.floor(b.dmg * falloff));
+              }
+            }
+          }
+          removeBullet=true;
         } else {
           // ── Normal hit (with headshot detection + penetration) ──
           const hs = isHeadshot(hitCheckPos, z);
           const finalDmg = hs ? Math.floor(b.dmg * HEADSHOT_MULT) : b.dmg;
           // Visual feedback
-          bloodBurst(hitPos.clone(), b.fire ? 0xff4400 : 0x880000);
+          const bColor = b.chain ? 0x00ccff : b.fire ? 0xff4400 : 0x880000;
+          bloodBurst(hitPos.clone(), bColor);
           if(hs){
             headshotBurst(hitPos.clone());
             flashHeadshotMarker();
@@ -5451,6 +6650,10 @@ function tick(dt,ts){
           }
           b._hitSet.add(z);
           b.pierced++;
+          // ── Chain Lightning (The Reaper) — arc to nearby zombies ──
+          if(b.chain && b.chainCount > 0){
+            chainLightningArc(z, b.dmg, b.chainCount, b.chainRange, b._hitSet, b.packed);
+          }
           // Broadcast hit effect to other players
           if(mpMode !== 'solo'){
             socket.emit('bullet_hit', { pos:{x:hitPos.x,y:hitPos.y,z:hitPos.z}, origin:{x:pos.x,y:1.1,z:pos.z}, explosive:false, fire:!!b.fire, gunKey:b.gunKey||'' });
@@ -6116,6 +7319,35 @@ function renderMapGrid(){
   }
 }
 
+// ── Character selection card rendering ──
+function renderCharSelect(containerId){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  container.innerHTML = '';
+  for(const cid of CHARACTER_ORDER){
+    const ch = CHARACTERS[cid];
+    const card = document.createElement('div');
+    card.className = 'char-card' + (cid===selectedCharId ? ' selected' : '');
+    card.dataset.charId = cid;
+    card.innerHTML = '<div class="cc-icon">'+ch.icon+'</div><div class="cc-name">'+ch.name.replace('The ','')+'</div>';
+    card.addEventListener('click', ()=>{
+      selectedCharId = cid;
+      // Update all char-select containers
+      document.querySelectorAll('.char-select').forEach(cs=>{
+        cs.querySelectorAll('.char-card').forEach(c=>{
+          c.classList.toggle('selected', c.dataset.charId===cid);
+        });
+      });
+      // Rebuild local player mesh with new character
+      rebuildLocalPlayerMesh();
+      // Notify server in multiplayer
+      if(socket && roomCode) socket.emit('set_character', { charId: cid });
+    });
+    card.addEventListener('touchend', e=>{ e.preventDefault(); card.click(); }, {passive:false});
+    container.appendChild(card);
+  }
+}
+
 // Solo flow: soloBtn → map select → start screen
 document.getElementById('mapSelectPlayBtn').addEventListener('click', ()=>{
   buildMap(selectedMapId);
@@ -6161,7 +7393,8 @@ const SETTINGS = {
     dodge:   'Space',
     knife:   'KeyF',
     buy:     'KeyE',
-    ads:     'KeyQ',
+    ads:     'NONE',
+    ability: 'KeyQ',
   }
 };
 
@@ -6721,6 +7954,70 @@ function playSfx(type){
     osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.18);
   }
 
+  else if(type==='reaper'){
+    // Electric chain gun — buzzing electric crackle + rapid zap
+    master.gain.setValueAtTime(0.4, t);
+    master.gain.exponentialRampToValueAtTime(0.001, t+0.12);
+    // Electric buzz base
+    const osc = sfxCtx.createOscillator(); osc.type='sawtooth';
+    osc.frequency.setValueAtTime(180,t); osc.frequency.exponentialRampToValueAtTime(120,t+0.08);
+    const og = sfxCtx.createGain(); og.gain.setValueAtTime(0.25,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+    osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.1);
+    // High-frequency crackle
+    const osc2 = sfxCtx.createOscillator(); osc2.type='square';
+    osc2.frequency.setValueAtTime(4400+Math.random()*800,t);
+    osc2.frequency.exponentialRampToValueAtTime(2200,t+0.06);
+    const og2 = sfxCtx.createGain(); og2.gain.setValueAtTime(0.12,t); og2.gain.exponentialRampToValueAtTime(0.001,t+0.07);
+    osc2.connect(og2); og2.connect(master); osc2.start(t); osc2.stop(t+0.07);
+    // Noise snap
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*0.05, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.008));
+    const src = sfxCtx.createBufferSource(); src.buffer=buf;
+    const hp = sfxCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=2000;
+    src.connect(hp); hp.connect(master); src.start(t); src.stop(t+0.05);
+  }
+
+  else if(type==='raygun'){
+    // Sci-fi energy blast — descending sine sweep + wide reverb-like tail
+    master.gain.setValueAtTime(0.55, t);
+    master.gain.exponentialRampToValueAtTime(0.001, t+0.35);
+    // Main energy whomp
+    const osc = sfxCtx.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(1800,t); osc.frequency.exponentialRampToValueAtTime(200,t+0.25);
+    const og = sfxCtx.createGain(); og.gain.setValueAtTime(0.4,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+    osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.3);
+    // Harmonic whine
+    const osc2 = sfxCtx.createOscillator(); osc2.type='triangle';
+    osc2.frequency.setValueAtTime(3200,t); osc2.frequency.exponentialRampToValueAtTime(600,t+0.2);
+    const og2 = sfxCtx.createGain(); og2.gain.setValueAtTime(0.15,t); og2.gain.exponentialRampToValueAtTime(0.001,t+0.2);
+    osc2.connect(og2); og2.connect(master); osc2.start(t); osc2.stop(t+0.2);
+    // Punchy noise attack
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*0.08, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.015));
+    const src = sfxCtx.createBufferSource(); src.buffer=buf;
+    const bp = sfxCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1400; bp.Q.value=1.5;
+    src.connect(bp); bp.connect(master); src.start(t); src.stop(t+0.08);
+  }
+
+  else if(type==='raygun_hit'){
+    // Green energy splash impact — short reverberant thump + sizzle
+    master.gain.setValueAtTime(0.5, t);
+    master.gain.exponentialRampToValueAtTime(0.001, t+0.3);
+    const osc = sfxCtx.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(400,t); osc.frequency.exponentialRampToValueAtTime(80,t+0.2);
+    const og = sfxCtx.createGain(); og.gain.setValueAtTime(0.4,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+    osc.connect(og); og.connect(master); osc.start(t); osc.stop(t+0.25);
+    // Sizzle
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*0.15, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.04));
+    const src = sfxCtx.createBufferSource(); src.buffer=buf;
+    const hp = sfxCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3000;
+    src.connect(hp); hp.connect(master); src.start(t); src.stop(t+0.15);
+  }
+
   else {
     // Fallback generic gunshot
     master.gain.setValueAtTime(0.4, t);
@@ -6867,40 +8164,24 @@ let remotePlayers = {};     // id -> { mesh, data }
 let mpReady     = false;
 
 // ── Build remote player mesh (full body with arms, legs, gun, and name label) ──
-function makeRemotePlayer(colorIdx, playerName){
+function makeRemotePlayer(colorIdx, playerName, charId){
   const col = PLAYER_COLORS[colorIdx] || 0xffffff;
-  const g   = new THREE.Group();
 
-  // Body (child 0)
-  const body= new THREE.Mesh(new THREE.BoxGeometry(.6,1,.4), new THREE.MeshLambertMaterial({color:col}));
-  body.position.y=.9; g.add(body);
+  // Build detailed character mesh
+  const parts = buildCharacterMesh(charId || 'soldier');
+  const g = parts.group;
 
-  // Head (child 1)
-  const head= new THREE.Mesh(new THREE.BoxGeometry(.45,.45,.45), new THREE.MeshLambertMaterial({color:0xffcc99}));
-  head.position.y=1.62; g.add(head);
+  // Store pivot refs for walk animation
+  g.userData.legL = parts.legLPivot;
+  g.userData.legR = parts.legRPivot;
+  g.userData.armL = parts.armLPivot;
+  g.userData.armR = parts.armRPivot;
 
-  // Leg pivots (children 2,3) — rotate at hip
-  const legLPivot = new THREE.Group(); legLPivot.position.set(-.18,.625,0); g.add(legLPivot);
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(.22,.6,.22), new THREE.MeshLambertMaterial({color:col}));
-  legL.position.set(0,-.3,0); legLPivot.add(legL);
-
-  const legRPivot = new THREE.Group(); legRPivot.position.set(.18,.625,0); g.add(legRPivot);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(.22,.6,.22), new THREE.MeshLambertMaterial({color:col}));
-  legR.position.set(0,-.3,0); legRPivot.add(legR);
-
-  // Arm pivots (children 4,5) — rotate at shoulder
-  const armLPivot = new THREE.Group(); armLPivot.position.set(-.44,1.1,-.05); g.add(armLPivot);
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(.18,.48,.18), new THREE.MeshLambertMaterial({color:col}));
-  armL.position.set(0,-.24,0); armLPivot.add(armL);
-
-  const armRPivot = new THREE.Group(); armRPivot.position.set(.44,1.1,-.05); g.add(armRPivot);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(.18,.48,.18), new THREE.MeshLambertMaterial({color:col}));
-  armR.position.set(0,-.24,0); armRPivot.add(armR);
-
-  // Gun group (child 6) — holds simple weapon model
+  // Gun group — holds simple weapon model
   const rGunGrp = new THREE.Group();
   rGunGrp.position.set(.38, 1.0, -.25);
   g.add(rGunGrp);
+  g.userData.gunGrp = rGunGrp;
   buildRemoteWeaponModel(rGunGrp, 'pistol', false);
 
   // Muzzle flash light (inside gun group)
@@ -6908,7 +8189,7 @@ function makeRemotePlayer(colorIdx, playerName){
   rMuzzle.position.set(0,0,-.5);
   rGunGrp.add(rMuzzle);
 
-  // Name label sprite (child 7)
+  // Name label sprite with player color
   const nameSprite = makeNameSprite(playerName || 'Player', col);
   nameSprite.position.set(0, 2.15, 0);
   g.add(nameSprite);
@@ -7003,6 +8284,53 @@ function buildRemoteWeaponModel(grp, gunKey, packed){
   } else if(gunKey === 'flamethrower'){
     const body = new THREE.Mesh(new THREE.BoxGeometry(.1,.1,.5), mat); body.position.z=-.28; grp.add(body);
     const tank = new THREE.Mesh(new THREE.BoxGeometry(.12,.18,.12), new THREE.MeshLambertMaterial({color:0x884400})); tank.position.set(0,-.06,.05); grp.add(tank);
+  } else if(gunKey === 'reaper'){
+    // The Reaper — Electric Chain Gun: multi-barrel rotary with electric coils
+    const reaperCol = packed ? 0x88eeff : 0x00ccff;
+    const reaperMat = new THREE.MeshLambertMaterial({color: packed?0x6644aa:0x333344});
+    if(packed){ reaperMat.emissive=new THREE.Color(0xaa22ff); reaperMat.emissiveIntensity=0.2; }
+    // Main body housing
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.14,.12,.4), reaperMat);
+    body.position.z=-.1; grp.add(body);
+    // Rotating barrel cluster (3 barrels)
+    const bMat = new THREE.MeshLambertMaterial({color:0x555566});
+    for(let i=0;i<3;i++){
+      const brl = new THREE.Mesh(new THREE.BoxGeometry(.035,.035,.5), bMat);
+      const angle = (i/3)*Math.PI*2;
+      brl.position.set(Math.cos(angle)*0.04, Math.sin(angle)*0.04, -.35);
+      grp.add(brl);
+    }
+    // Electric coil rings
+    const coilMat = new THREE.MeshBasicMaterial({color:reaperCol});
+    for(let c=0;c<3;c++){
+      const coil = new THREE.Mesh(new THREE.BoxGeometry(.16,.16,.015), coilMat);
+      coil.position.z = -.15 - c*0.12;
+      grp.add(coil);
+    }
+    // Handle/grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(.06,.12,.06), new THREE.MeshLambertMaterial({color:0x222222}));
+    grip.position.set(0,-.08,.08); grp.add(grip);
+  } else if(gunKey === 'raygun'){
+    // Ray Gun — retro sci-fi pistol shape with wide barrel and energy cell
+    const rgCol = packed ? 0x44ff88 : 0x00ff44;
+    const rgMat = new THREE.MeshLambertMaterial({color: packed?0x337755:0x224433});
+    if(packed){ rgMat.emissive=new THREE.Color(0x22ff66); rgMat.emissiveIntensity=0.3; }
+    // Wide barrel with flared tip
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(.1,.08,.35), rgMat);
+    barrel.position.z=-.2; grp.add(barrel);
+    // Flared muzzle
+    const flare = new THREE.Mesh(new THREE.BoxGeometry(.14,.12,.06), new THREE.MeshLambertMaterial({color:rgCol}));
+    flare.position.z=-.4; grp.add(flare);
+    // Energy cell (glowing green top part)
+    const cellMat = new THREE.MeshBasicMaterial({color:rgCol, transparent:true, opacity:0.8});
+    const cell = new THREE.Mesh(new THREE.BoxGeometry(.06,.08,.1), cellMat);
+    cell.position.set(0,.06,-.1); grp.add(cell);
+    // Body/receiver
+    const recv = new THREE.Mesh(new THREE.BoxGeometry(.08,.1,.12), rgMat);
+    recv.position.z=0; grp.add(recv);
+    // Grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(.06,.12,.06), new THREE.MeshLambertMaterial({color:0x222222}));
+    grip.position.set(0,-.08,.02); grp.add(grip);
   } else if(gunKey === 'fists'){
     // No weapon model for fists
   } else {
@@ -7033,6 +8361,7 @@ function renderLobbyList(players, containerId){
 document.getElementById('soloBtn').addEventListener('click', ()=>{
   mpMode='solo';
   renderMapGrid();
+  renderCharSelect('soloCharSelect');
   showScreen('mapSelectScreen');
 });
 
@@ -7056,6 +8385,7 @@ document.getElementById('hostNameBtn').addEventListener('click', ()=>{
     mpMode     = 'host';
     document.getElementById('roomCodeDisp').textContent = res.code;
     renderLobbyList(res.players, 'lobbyPlayerList');
+    renderCharSelect('hostCharSelect');
     showScreen('hostLobbyScreen');
   });
 });
@@ -7097,6 +8427,7 @@ document.getElementById('joinSubmitBtn').addEventListener('click', ()=>{
     }
     document.getElementById('waitRoomCode').textContent = res.code;
     renderLobbyList(res.players, 'waitPlayerList');
+    renderCharSelect('waitCharSelect');
     showScreen('waitLobbyScreen');
   });
 });
@@ -7153,7 +8484,7 @@ socket.on('game_start', (data) => {
   // Set up remote player meshes
   players.forEach(p => {
     if(p.id === socket.id) return;
-    const mesh = makeRemotePlayer(p.color, p.name);
+    const mesh = makeRemotePlayer(p.color, p.name, p.charId);
     mesh.position.set(PLAYER_SPAWNS[p.spawnIdx].x, 0, PLAYER_SPAWNS[p.spawnIdx].z);
     remotePlayers[p.id] = { mesh, data: p, lastGunKey:'pistol', prevPos:{x:0,z:0}, walkPhase:0 };
   });
@@ -7432,12 +8763,12 @@ function tickRemotePlayers(dt){
     const sinP = Math.sin(rp.walkPhase);
     const swingAmt = isMoving ? 0.5 : sinP * 0.05;
 
-    // Children layout: 0=body, 1=head, 2=legLPivot, 3=legRPivot, 4=armLPivot, 5=armRPivot, 6=gunGrp, 7=nameSprite
-    const legLPivot = rp.mesh.children[2];
-    const legRPivot = rp.mesh.children[3];
-    const armLPivot = rp.mesh.children[4];
-    const armRPivot = rp.mesh.children[5];
-    const rGunGrp   = rp.mesh.children[6];
+    // Use userData refs (works with any character mesh)
+    const legLPivot = rp.mesh.userData.legL;
+    const legRPivot = rp.mesh.userData.legR;
+    const armLPivot = rp.mesh.userData.armL;
+    const armRPivot = rp.mesh.userData.armR;
+    const rGunGrp   = rp.mesh.userData.gunGrp;
 
     if(legLPivot) legLPivot.rotation.x = sinP * swingAmt;
     if(legRPivot) legRPivot.rotation.x = -sinP * swingAmt;
@@ -7786,6 +9117,26 @@ function spawnRemoteTracer(origin, hit, isFire, gunKey){
 // (powerup spawns are now embedded in zombie_update — no separate event needed)
 
 /// ── Shared powerups: when a teammate picks one up, activate it for us too ──
+// ── Receive heal pulse from teammate ──
+socket.on('heal_pulse', ({ amount, name }) => {
+  health = Math.min(health + amount, 200);
+  updateHUD();
+  addFeed('💚 ' + name + ' healed everyone for ' + amount + ' HP!');
+  // Green flash
+  const flash = document.getElementById('hflash');
+  if(flash){
+    flash.style.background = 'rgba(0,255,100,0.3)';
+    flash.style.opacity = '1';
+    setTimeout(()=>{ flash.style.opacity = '0'; setTimeout(()=>{ flash.style.background = ''; },300); },200);
+  }
+});
+
+// ── Receive ability notification from teammate ──
+socket.on('ability_used', ({ charId, name }) => {
+  const def = ABILITY_DEFS[charId];
+  if(def) addFeed('⚡ ' + name + ' used ' + def.name + '!');
+});
+
 socket.on('powerup_collected', ({ dropId, powerupId, collectorName }) => {
   const pw = POWERUPS.find(p => p.id === powerupId);
   if(!pw) return;
@@ -7808,9 +9159,20 @@ socket.on('powerup_collected', ({ dropId, powerupId, collectorName }) => {
 // ── Multiplayer-aware startGame ───────────────────────
 function startGameMP(spawnPos){
   mpReady = false;
-  // Stop menu music, start game music
+  // Rebuild local player mesh with chosen character
+  rebuildLocalPlayerMesh();
+  resetAbilities();
+  // Stop menu music, start per-map game music
   menuMusic.pause();
   menuMusic.currentTime = 0;
+  // Swap to map-specific music track if available
+  const mapCfg = MAPS[selectedMapId] || MAPS.farm;
+  const mapTrack = mapCfg.music || '/game-music.mp3';
+  if(gameMusic.getAttribute('data-src') !== mapTrack){
+    gameMusic.src = mapTrack;
+    gameMusic.setAttribute('data-src', mapTrack);
+    gameMusic.load();
+  }
   gameMusic.currentTime = 0;
   applyMusicGain();
   gameMusic.play().catch(()=>{});
