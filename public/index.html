@@ -844,11 +844,23 @@ let headshotCount = 0;          // lifetime headshot counter (for stats/HUD)
 const BOSS_SPAWN_INTERVAL = 7;   // spawn boss every N rounds (7, 14, 21, ...)
 const BOSS_SCALE          = 2.0; // visual scale (2x normal size)
 const BOSS_HP_MULT        = 18;  // HP multiplier vs base HP (boss gets baseHp * 18)
-const BOSS_SPEED_MULT     = 0.6; // speed multiplier (slower but heavy)
+const BOSS_SPEED_MULT     = 0.7; // speed multiplier (slower but heavy)
 const BOSS_MELEE_DMG      = 80;  // melee damage per hit
 const BOSS_ATK_CD         = 1.0; // attack cooldown in seconds
 const BOSS_POINTS_MULT    = 10;  // score/credit multiplier on kill
 const BOSS_NAMES = ['THE ABOMINATION','THE BRUTE','CORPSE TITAN','FLESH COLOSSUS','THE UNDYING'];
+// ── Boss Attack Pattern Config ──
+const BOSS_SLAM_CD       = 5;    // Ground Slam every 5s
+const BOSS_SLAM_WINDUP   = 0.5;  // windup time before slam hits
+const BOSS_SLAM_DMG      = 30;   // shockwave damage
+const BOSS_SLAM_RADIUS   = 6;    // shockwave radius
+const BOSS_CHARGE_CD     = 10;   // Charge every 10s
+const BOSS_CHARGE_WARN   = 1.0;  // roar warning before charge
+const BOSS_CHARGE_DUR    = 2.0;  // charge duration
+const BOSS_CHARGE_SPD    = 3.0;  // speed multiplier during charge
+const BOSS_CHARGE_DMG    = 60;   // damage on contact during charge
+const BOSS_CHARGE_STUN   = 3.0;  // stun duration if boss hits wall
+const BOSS_SUMMON_ELITES = 5;    // elites spawned per summon
 let activeBoss = null;           // reference to the current boss zombie object (null = no boss alive)
 let bossRoundActive = false;     // true during a boss wave
 
@@ -6186,7 +6198,18 @@ function spawnBossZombie(w){
   const bossObj = {
     mesh:g, hp, maxHp:hp, speed, atkT:0, atkCD, alive:true,
     legPhase: Math.random()*Math.PI*2,
-    elite: false, boss: true, meleeDmg, punchT:0
+    elite: false, boss: true, meleeDmg, punchT:0,
+    // ── Boss attack pattern state ──
+    slamCD: BOSS_SLAM_CD,          // countdown to next Ground Slam
+    slamWindup: 0,                  // >0 means boss is winding up slam
+    chargeCD: BOSS_CHARGE_CD,      // countdown to next Charge
+    chargeWarn: 0,                  // >0 means boss is roaring before charge
+    chargeDur: 0,                   // >0 means boss is actively charging
+    chargeDir: new THREE.Vector3(), // direction of charge
+    stunT: 0,                       // >0 means boss is stunned (hit wall)
+    chargeHit: false,               // has this charge already hit the player
+    summoned50: false,              // has boss summoned at 50% HP
+    summoned25: false               // has boss summoned at 25% HP
   };
   zombies.push(bossObj);
   activeBoss = bossObj;
@@ -6214,6 +6237,180 @@ function playBossGrowl(){
   if(window._bossRoarGain) window._bossRoarGain.gain.value = 1.0;
   window._bossRoarAudio.currentTime = 0;
   window._bossRoarAudio.play().catch(()=>{});
+}
+
+// ══════════════════════════════════════════════════
+// BOSS ATTACK PATTERNS — Ground Slam, Charge, Summon
+// ══════════════════════════════════════════════════
+function tickBossAttacks(dt){
+  const b = activeBoss;
+  if(!b || !b.alive) return;
+
+  // ── Stunned: skip all actions ──
+  if(b.stunT > 0){
+    b.stunT -= dt;
+    // Flash boss white while stunned
+    if(Math.floor(b.stunT * 6) % 2 === 0){
+      b.mesh.children.forEach(c => { if(c.material && c.material.color) c.material.emissiveIntensity = 0.5; });
+    }
+    return; // boss can't act while stunned
+  }
+
+  // ── Summon: at 50% and 25% HP thresholds ──
+  const hpPct = b.hp / b.maxHp;
+  if(!b.summoned50 && hpPct <= 0.50){
+    b.summoned50 = true;
+    bossDoSummon(b);
+  }
+  if(!b.summoned25 && hpPct <= 0.25){
+    b.summoned25 = true;
+    bossDoSummon(b);
+  }
+
+  // ── Don't tick attack cooldowns during windup/charge ──
+  if(b.slamWindup > 0){ tickBossSlam(b, dt); return; }
+  if(b.chargeWarn > 0){ tickBossChargeWarn(b, dt); return; }
+  if(b.chargeDur > 0){ tickBossCharge(b, dt); return; }
+
+  // ── Cooldown ticks ──
+  b.slamCD -= dt;
+  b.chargeCD -= dt;
+
+  // ── Ground Slam: priority over charge ──
+  if(b.slamCD <= 0){
+    b.slamCD = BOSS_SLAM_CD;
+    b.slamWindup = BOSS_SLAM_WINDUP;
+    // Raise arms (windup animation)
+    if(b.mesh.userData.armL) b.mesh.userData.armL.rotation.x = -2.5;
+    if(b.mesh.userData.armR) b.mesh.userData.armR.rotation.x = -2.5;
+    return;
+  }
+
+  // ── Charge ──
+  if(b.chargeCD <= 0){
+    b.chargeCD = BOSS_CHARGE_CD;
+    b.chargeWarn = BOSS_CHARGE_WARN;
+    playBossGrowl();
+    showBanner('⚠ CHARGE! ⚠');
+    return;
+  }
+}
+
+// ── Ground Slam: windup → slam → shockwave ──
+function tickBossSlam(b, dt){
+  b.slamWindup -= dt;
+  if(b.slamWindup <= 0){
+    // Slam! Reset arms
+    if(b.mesh.userData.armL) b.mesh.userData.armL.rotation.x = -0.7;
+    if(b.mesh.userData.armR) b.mesh.userData.armR.rotation.x = -0.7;
+    // Camera shake
+    triggerShake(0.5, 10);
+    gpRumble(0.4, 0.8, 400);
+    // Shockwave visual ring
+    const ringGeo = new THREE.RingGeometry(0.5, 1.0, 32);
+    const ringMat = new THREE.MeshBasicMaterial({color:0xff4400, transparent:true, opacity:0.7, side:THREE.DoubleSide});
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI/2;
+    ring.position.copy(b.mesh.position); ring.position.y = 0.1;
+    scene.add(ring);
+    const startT = performance.now();
+    (function animRing(){
+      const elapsed = (performance.now()-startT)/1000;
+      if(elapsed > 0.5){ scene.remove(ring); ring.geometry.dispose(); ring.material.dispose(); return; }
+      const s = 1 + elapsed * (BOSS_SLAM_RADIUS * 2);
+      ring.scale.set(s, s, s);
+      ring.material.opacity = 0.7 * (1 - elapsed / 0.5);
+      requestAnimationFrame(animRing);
+    })();
+    // Damage player if in radius
+    const bPos = b.mesh.position;
+    const pDist = Math.sqrt((pos.x-bPos.x)**2 + (pos.z-bPos.z)**2);
+    if(pDist < BOSS_SLAM_RADIUS && invT <= 0 && !modGodMode && !downed){
+      health = Math.max(0, health - BOSS_SLAM_DMG);
+      regenTimer = 0;
+      hitFlash(); updateHUD();
+      showDamageDirection(bPos);
+      if(health <= 0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); } else { if(trySoloQuickRevive()) return; triggerGameOver(); } }
+    }
+    // Damage remote players in multiplayer
+    if(mpMode !== 'solo' && socket){
+      socket.emit('boss_slam', { pos:{x:bPos.x, z:bPos.z}, dmg:BOSS_SLAM_DMG, radius:BOSS_SLAM_RADIUS });
+    }
+    addFeed('💥 GROUND SLAM!');
+  }
+}
+
+// ── Charge: warning roar → dash toward player ──
+function tickBossChargeWarn(b, dt){
+  b.chargeWarn -= dt;
+  if(b.chargeWarn <= 0){
+    // Start charge: lock direction toward player
+    const dx = pos.x - b.mesh.position.x;
+    const dz = pos.z - b.mesh.position.z;
+    const dist = Math.sqrt(dx*dx + dz*dz) || 1;
+    b.chargeDir.set(dx/dist, 0, dz/dist);
+    b.chargeDur = BOSS_CHARGE_DUR;
+    b.chargeHit = false;
+  }
+}
+
+function tickBossCharge(b, dt){
+  b.chargeDur -= dt;
+  const chargeSpeed = b.speed * BOSS_CHARGE_SPD;
+  b.mesh.position.x += b.chargeDir.x * chargeSpeed * dt;
+  b.mesh.position.z += b.chargeDir.z * chargeSpeed * dt;
+  // Rotate boss to face charge direction
+  b.mesh.rotation.y = Math.atan2(b.chargeDir.x, b.chargeDir.z);
+
+  // Check wall collision — stun if boss hits arena edge
+  if(Math.abs(b.mesh.position.x) > ARENA - 1.5 || Math.abs(b.mesh.position.z) > ARENA - 1.5){
+    // Clamp position
+    b.mesh.position.x = Math.max(-ARENA+1.5, Math.min(ARENA-1.5, b.mesh.position.x));
+    b.mesh.position.z = Math.max(-ARENA+1.5, Math.min(ARENA-1.5, b.mesh.position.z));
+    b.chargeDur = 0;
+    b.stunT = BOSS_CHARGE_STUN;
+    triggerShake(0.4, 8);
+    addFeed('💫 BOSS STUNNED!');
+    return;
+  }
+
+  // Check player collision during charge
+  if(!b.chargeHit && !downed){
+    const dx = pos.x - b.mesh.position.x;
+    const dz = pos.z - b.mesh.position.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if(dist < 2.5 && invT <= 0 && !modGodMode){
+      b.chargeHit = true;
+      health = Math.max(0, health - BOSS_CHARGE_DMG);
+      regenTimer = 0;
+      hitFlash(); updateHUD();
+      showDamageDirection(b.mesh.position);
+      triggerShake(0.6, 12);
+      gpRumble(0.5, 1.0, 300);
+      if(health <= 0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); } else { if(trySoloQuickRevive()) return; triggerGameOver(); } }
+    }
+  }
+
+  // Charge ended naturally (no wall hit)
+  if(b.chargeDur <= 0){
+    b.chargeDur = 0;
+  }
+}
+
+// ── Summon: boss roars and spawns elite zombies ──
+function bossDoSummon(b){
+  playBossGrowl();
+  addFeed('☠ BOSS SUMMONING ELITES!');
+  showBanner('⚠ SUMMON ⚠');
+  triggerShake(0.3, 6);
+  // Spawn 5 elites near the boss
+  for(let i = 0; i < BOSS_SUMMON_ELITES; i++){
+    setTimeout(() => {
+      if(!b.alive) return;
+      spawnZombie(wave, true); // forceElite = true
+      zombsLeft++;
+    }, i * 300);
+  }
 }
 
 function updateBossHealthBar(){
@@ -7487,6 +7684,7 @@ function tick(dt,ts){
   tickPowerups(dt);
   tickAbilities(dt);
   tickLightningBolts(dt);
+  tickBossAttacks(dt);
   tickMPSend(dt);
   tickRemotePlayers(dt);
   tickClientZombies(dt);
@@ -7673,6 +7871,9 @@ function tick(dt,ts){
   // ── Zombies (only host simulates AI movement; clients get positions via sync)
   for(const z of zombies){
     if(!z.alive) continue;
+
+    // Boss: skip normal AI when charging, winding up slam, or stunned
+    if(z.boss && (z.stunT > 0 || z.slamWindup > 0 || z.chargeDur > 0 || z.chargeWarn > 0)) continue;
 
     // Clients: only handle local damage from zombie melee, skip AI movement
     if(mpMode === 'client'){
