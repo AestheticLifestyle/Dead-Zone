@@ -129,6 +129,19 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 #rlFill{height:100%;width:0;background:#ffd700;box-shadow:0 0 5px rgba(255,215,0,.5)}
 
 /* overlays */
+/* Blood splatter overlay */
+#bloodSplatContainer{position:fixed;inset:0;pointer-events:none;z-index:9996;overflow:hidden}
+.bloodSplat{position:absolute;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(120,0,0,.5) 0%,rgba(80,0,0,.2) 40%,transparent 70%);
+  opacity:0;animation:bsplat 1.8s forwards;filter:blur(8px)}
+@keyframes bsplat{0%{opacity:0;transform:scale(.5)}8%{opacity:.7;transform:scale(1.1)}20%{opacity:.5;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
+
+/* Damage direction indicator arcs */
+#dmgDirContainer{position:fixed;inset:0;pointer-events:none;z-index:9998}
+.dmgArc{position:absolute;left:50%;top:50%;width:80px;height:180px;margin-left:-40px;margin-top:-200px;
+  background:radial-gradient(ellipse at 50% 100%,rgba(255,20,20,.7) 0%,rgba(255,0,0,.3) 40%,transparent 70%);
+  transform-origin:50% calc(100% + 110px);opacity:0;animation:dmgArcFade 1s forwards;filter:blur(2px)}
+@keyframes dmgArcFade{0%{opacity:.85}30%{opacity:.7}100%{opacity:0}}
 #hflash{position:fixed;inset:0;background:rgba(255,0,0,.2);pointer-events:none;opacity:0;transition:opacity .1s}
 #gunFlash{position:fixed;inset:0;background:rgba(255,215,0,.1);pointer-events:none;opacity:0;transition:opacity .08s}
 #lowHpVignette{position:fixed;inset:0;pointer-events:none;z-index:9997;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse at center,transparent 40%,rgba(180,0,0,.45) 100%)}
@@ -139,9 +152,12 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 @keyframes kf{0%{opacity:0;transform:translateX(8px)}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
 
 /* damage popup */
-.dpop{position:fixed;font-size:15px;font-weight:700;color:#ff3333;pointer-events:none;text-shadow:0 0 5px rgba(255,0,0,.6);animation:dp .65s forwards;z-index:50}
-.dpop.hs{font-size:20px;color:#ffdd00;text-shadow:0 0 8px rgba(255,200,0,.8),0 0 16px rgba(255,150,0,.4)}
-@keyframes dp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-34px)}}
+.dpop{position:fixed;font-size:15px;font-weight:700;color:#ff3333;pointer-events:none;text-shadow:0 0 5px rgba(255,0,0,.6);animation:dp .7s forwards;z-index:50}
+.dpop.hs{font-size:22px;color:#ffdd00;text-shadow:0 0 8px rgba(255,200,0,.8),0 0 16px rgba(255,150,0,.4);animation:dpCrit .8s forwards}
+.dpop.explosive{font-size:18px;color:#ff8800;text-shadow:0 0 8px rgba(255,120,0,.8),0 0 14px rgba(255,60,0,.4)}
+.dpop.big{font-size:26px;animation:dpCrit .8s forwards}
+@keyframes dp{0%{opacity:1;transform:translateY(0) scale(1)}60%{opacity:.9}100%{opacity:0;transform:translateY(-38px) scale(.8)}}
+@keyframes dpCrit{0%{opacity:1;transform:translateY(0) scale(1.3)}15%{transform:translateY(-6px) scale(1)}100%{opacity:0;transform:translateY(-44px) scale(.7)}}
 /* headshot marker flash (center screen) */
 #hsMarker{position:fixed;top:46%;left:50%;transform:translate(-50%,-50%);font-size:11px;letter-spacing:4px;color:#ffdd00;text-transform:uppercase;pointer-events:none;opacity:0;transition:opacity .12s;text-shadow:0 0 8px rgba(255,200,0,.7);z-index:55}
 #hsMarker.on{opacity:1}
@@ -535,6 +551,11 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
 <!-- BOSS ZOMBIE HEALTH BAR -->
 <div id="bossBar"><div id="bossName">THE ABOMINATION</div><div id="bossHpTrack"><div id="bossHpFill"></div></div><div id="bossHpTxt"></div></div>
 
+<!-- Damage direction indicators -->
+<div id="dmgDirContainer"></div>
+<!-- Blood splatter overlay (hit feedback) -->
+<div id="bloodSplatContainer"></div>
+
 <!-- Overlays -->
 <div id="hflash"></div>
 <div id="gunFlash"></div>
@@ -632,7 +653,15 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="gostat"><div class="v" id="goScore">0</div><div class="l">Score</div></div>
     <div class="gostat"><div class="v" id="goWave">1</div><div class="l">Wave</div></div>
     <div class="gostat"><div class="v" id="goKills">0</div><div class="l">Kills</div></div>
+    <div class="gostat"><div class="v" id="goHS">0</div><div class="l">Headshots</div></div>
   </div>
+  <div id="goBestRow" class="gostats" style="margin-top:6px;opacity:.7">
+    <div class="gostat"><div class="v" id="goBestScore">0</div><div class="l">Best Score</div></div>
+    <div class="gostat"><div class="v" id="goBestWave">0</div><div class="l">Best Wave</div></div>
+    <div class="gostat"><div class="v" id="goBestKills">0</div><div class="l">Best Kills</div></div>
+    <div class="gostat"><div class="v" id="goGames">0</div><div class="l">Games</div></div>
+  </div>
+  <div id="goNewBest" style="color:#ffdd00;font-size:16px;font-weight:700;text-shadow:0 0 12px rgba(255,200,0,.6);margin-top:6px;opacity:0;transition:opacity .3s">NEW PERSONAL BEST!</div>
   <button class="gbtn" id="replayBtn">&#8635;&nbsp; PLAY AGAIN</button>
 </div>
 
@@ -832,6 +861,7 @@ const pos     = new THREE.Vector3();
 const rollDir = new THREE.Vector3();
 const keys    = {};
 const bullets = [], particles = [], zombies = [];
+const _zGrid = {}; // spatial hash grid for zombie neighbor lookups (rebuilt each frame)
 const powerupDrops = []; // active powerup orbs on the ground
 let nextPwrDropId = 0;   // unique ID counter for powerup drops (multiplayer sync)
 const _pendingPwrDrops = []; // buffer for powerup drops to embed in zombie_update
@@ -4617,16 +4647,28 @@ function addFeed(txt){
   document.getElementById('kfeed').appendChild(el);
   setTimeout(()=>el.remove(),2200);
 }
-function dmgPop(wp, dmgAmount, isHeadshot){
+let _dpopCount = 0;
+const DPOP_MAX = 15; // max simultaneous damage pops on screen
+function dmgPop(wp, dmgAmount, isHeadshot, isExplosive){
+  if(_dpopCount >= DPOP_MAX) return; // throttle DOM creation
   const v=wp.clone(); v.project(cam);
   const x=(v.x*.5+.5)*innerWidth, y=(-.5*v.y+.5)*innerHeight-22;
   if(x<0||x>innerWidth||y<0||y>innerHeight) return;
   const el=document.createElement('div');
-  el.className = isHeadshot ? 'dpop hs' : 'dpop';
-  el.style.left=x+'px'; el.style.top=y+'px';
-  el.textContent = (isHeadshot ? '✦ ' : '') + Math.floor(dmgAmount != null ? dmgAmount : currentGun().dmg);
+  const amt = Math.floor(dmgAmount != null ? dmgAmount : currentGun().dmg);
+  let cls = 'dpop';
+  if(isHeadshot) cls += ' hs';
+  else if(isExplosive) cls += ' explosive';
+  if(amt >= 100) cls += ' big';
+  el.className = cls;
+  // Slight random horizontal scatter so stacked hits don't overlap perfectly
+  const scatter = (Math.random() - 0.5) * 30;
+  el.style.left = (x + scatter) + 'px';
+  el.style.top = y + 'px';
+  el.textContent = (isHeadshot ? '✦ ' : '') + amt;
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(),650);
+  _dpopCount++;
+  setTimeout(()=>{ el.remove(); _dpopCount--; }, 850);
 }
 function showBanner(w){
   document.getElementById('wbNum').textContent='WAVE '+w;
@@ -4636,6 +4678,63 @@ function showBanner(w){
 function hitFlash(){
   const f=document.getElementById('hflash'); f.style.opacity='1';
   setTimeout(()=>f.style.opacity='0',110);
+  // Spawn 1-2 blood splatter marks on screen edges (capped)
+  const maxHP = getMaxHealth();
+  const ratio = health / maxHP;
+  const splatCount = ratio < 0.3 ? 2 : 1;
+  const container = document.getElementById('bloodSplatContainer');
+  if(container.children.length >= 6) return; // cap total splatters
+  for(let i = 0; i < splatCount; i++){
+    const el = document.createElement('div');
+    el.className = 'bloodSplat';
+    // Random position biased toward edges
+    const edge = Math.random();
+    const size = 80 + Math.random() * 120;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    if(edge < 0.25){
+      el.style.left = (Math.random() * 30) + '%';
+      el.style.top = (Math.random() * 100) + '%';
+    } else if(edge < 0.5){
+      el.style.right = (Math.random() * 30) + '%';
+      el.style.top = (Math.random() * 100) + '%';
+    } else if(edge < 0.75){
+      el.style.top = (Math.random() * 25) + '%';
+      el.style.left = (Math.random() * 100) + '%';
+    } else {
+      el.style.bottom = (Math.random() * 25) + '%';
+      el.style.left = (Math.random() * 100) + '%';
+    }
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 1900);
+  }
+}
+
+// ── Damage Direction Indicator — red arc showing where hit came from ──
+let _dmgArcCount = 0;
+const DMGARC_MAX = 4;
+function showDamageDirection(zombiePos){
+  if(_dmgArcCount >= DMGARC_MAX) return;
+  // Calculate angle from player forward to zombie position
+  const dx = zombiePos.x - pos.x;
+  const dz = zombiePos.z - pos.z;
+  // Angle of zombie relative to world
+  const angleToZombie = Math.atan2(dx, dz);
+  // Player facing direction (camYaw points camera forward as -sin(yaw), -cos(yaw))
+  // Relative angle: how far off-center the zombie is from where we're looking
+  let relAngle = angleToZombie - camYaw;
+  // Normalize to [-PI, PI]
+  while(relAngle > Math.PI) relAngle -= Math.PI * 2;
+  while(relAngle < -Math.PI) relAngle += Math.PI * 2;
+  // Convert to degrees for CSS rotation (0° = top of screen = behind player)
+  // The arc should appear on the SIDE the zombie is at, so rotate it around screen center
+  const deg = (relAngle * 180 / Math.PI) + 180;
+  const el = document.createElement('div');
+  el.className = 'dmgArc';
+  el.style.transform = 'rotate(' + deg + 'deg)';
+  document.getElementById('dmgDirContainer').appendChild(el);
+  _dmgArcCount++;
+  setTimeout(() => { el.remove(); _dmgArcCount--; }, 1050);
 }
 function updateBuyPrompt(){
   let txt=null;
@@ -5080,7 +5179,8 @@ function spawnBullet(burstCont){
     return;
   }
 
-  // ── Muzzle flash + recoil ──
+  // ── Muzzle flash + recoil + controller rumble ──
+  gpRumble(0.08, 0.15, 50);
   const inFPShot = adsLerp > 0.5;
   if(inFPShot && fpGunGrp){
     fpMuzzleFL.intensity = 6;
@@ -5213,8 +5313,8 @@ function dodge(){
   if(dashT>0||dashCD>0) return;
   const d=new THREE.Vector3();
   const kb=SETTINGS.keybinds;
-  if(keys[kb.forward]) d.z-=1; if(keys[kb.back]) d.z+=1;
-  if(keys[kb.left]) d.x-=1; if(keys[kb.right]) d.x+=1;
+  if(keys[kb.forward]||keys['GP_Up']) d.z-=1; if(keys[kb.back]||keys['GP_Down']) d.z+=1;
+  if(keys[kb.left]||keys['GP_Left']) d.x-=1; if(keys[kb.right]||keys['GP_Right']) d.x+=1;
   if(d.length()===0) d.z=-1; // default: dash forward
   d.applyEuler(new THREE.Euler(0,camYaw,0)).normalize();
   dashDir.copy(d);
@@ -5581,24 +5681,33 @@ function raygunSplashBurst(p, packed){
 // ── Chain Lightning (The Reaper) — arcs from target to nearby zombies ──
 function chainLightningArc(startZombie, baseDmg, jumpsLeft, range, hitSet, packed){
   let current = startZombie;
-  let dmg = Math.floor(baseDmg * 0.7); // chain damage falloff
+  let dmg = Math.floor(baseDmg * 0.7);
   for(let j = 0; j < jumpsLeft; j++){
-    // Find nearest alive zombie within range that hasn't been hit
+    // Spatial grid lookup instead of scanning ALL zombies
     let nearest = null, nearDist = range;
     const cPos = current.mesh.position;
-    for(const z of zombies){
-      if(!z.alive || z === current || hitSet.has(z)) continue;
-      const d = cPos.distanceTo(z.mesh.position);
-      if(d < nearDist){ nearest = z; nearDist = d; }
+    // Use grid cells covering chain range (range/GRID_CELL radius, capped)
+    const cx = Math.floor(cPos.x / 3);
+    const cz2 = Math.floor(cPos.z / 3);
+    const gridR = Math.ceil(range / 3);
+    for(let gx = -gridR; gx <= gridR; gx++){
+      for(let gz = -gridR; gz <= gridR; gz++){
+        const cell = _zGrid ? _zGrid[(cx+gx)+','+(cz2+gz)] : null;
+        if(!cell) continue;
+        for(let ci = 0; ci < cell.length; ci++){
+          const z = cell[ci];
+          if(!z.alive || z === current || hitSet.has(z)) continue;
+          const d = cPos.distanceTo(z.mesh.position);
+          if(d < nearDist){ nearest = z; nearDist = d; }
+        }
+      }
     }
     if(!nearest) break;
-    // Draw lightning arc between current and nearest
     drawLightningBolt(
       cPos.clone().add(new THREE.Vector3(0,1,0)),
       nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)),
       packed ? 0x88eeff : 0x00ccff
     );
-    // Damage the chained zombie
     const chainDmg = Math.floor(dmg);
     bloodBurst(nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)), 0x00ccff);
     dmgPop(nearest.mesh.position.clone().add(new THREE.Vector3(0,2,0)), chainDmg, false);
@@ -5614,43 +5723,66 @@ function chainLightningArc(startZombie, baseDmg, jumpsLeft, range, hitSet, packe
   }
 }
 
-// ── Draw a jagged lightning bolt between two points ──
-const _lightningBolts = [];
-function drawLightningBolt(from, to, color){
-  const pts = [from.clone()];
-  const segments = 6;
-  const delta = to.clone().sub(from);
-  for(let i = 1; i < segments; i++){
-    const t = i / segments;
-    const p = from.clone().add(delta.clone().multiplyScalar(t));
-    p.x += (Math.random()-0.5)*0.8;
-    p.y += (Math.random()-0.5)*0.4;
-    p.z += (Math.random()-0.5)*0.8;
-    pts.push(p);
-  }
-  pts.push(to.clone());
+// ── Lightning bolt pool — pre-allocated, zero GC ──
+const LB_POOL_SIZE = 12;
+const _lbPool = [];
+const _lbActive = [];
+// Shared material (reused by all bolts)
+const _lbMat = new THREE.LineBasicMaterial({color:0x00ccff, linewidth:2, transparent:true, opacity:1.0});
+// Pre-allocate pool
+for(let i = 0; i < LB_POOL_SIZE; i++){
+  const pts = [];
+  for(let s = 0; s <= 6; s++) pts.push(new THREE.Vector3());
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  const mat = new THREE.LineBasicMaterial({color: color, linewidth:2, transparent:true, opacity:1.0});
-  const line = new THREE.Line(geo, mat);
+  const line = new THREE.Line(geo, _lbMat.clone());
+  line.visible = false;
+  line.frustumCulled = false;
   scene.add(line);
-  // Glow light at midpoint
-  const mid = from.clone().add(to).multiplyScalar(0.5);
-  const gl = new THREE.PointLight(color, 3, 6);
-  gl.position.copy(mid); scene.add(gl);
-  _lightningBolts.push({line, light:gl, life:0.15});
+  _lbPool.push({line, life:0});
+}
+
+function drawLightningBolt(from, to, color){
+  // Grab from pool (or recycle oldest active)
+  let lb;
+  if(_lbPool.length > 0){
+    lb = _lbPool.pop();
+  } else if(_lbActive.length > 0){
+    // Steal oldest
+    lb = _lbActive.shift();
+  } else return;
+
+  const segments = 6;
+  const positions = lb.line.geometry.attributes.position;
+  const delta = to.clone().sub(from);
+  for(let i = 0; i <= segments; i++){
+    const t = i / segments;
+    let px = from.x + delta.x * t;
+    let py = from.y + delta.y * t;
+    let pz = from.z + delta.z * t;
+    if(i > 0 && i < segments){
+      px += (Math.random()-0.5)*0.8;
+      py += (Math.random()-0.5)*0.4;
+      pz += (Math.random()-0.5)*0.8;
+    }
+    positions.setXYZ(i, px, py, pz);
+  }
+  positions.needsUpdate = true;
+  lb.line.material.color.setHex(color);
+  lb.line.material.opacity = 1.0;
+  lb.line.visible = true;
+  lb.life = 0.12;
+  _lbActive.push(lb);
 }
 
 function tickLightningBolts(dt){
-  for(let i=_lightningBolts.length-1; i>=0; i--){
-    const lb = _lightningBolts[i];
+  for(let i = _lbActive.length - 1; i >= 0; i--){
+    const lb = _lbActive[i];
     lb.life -= dt;
-    lb.line.material.opacity = Math.max(0, lb.life / 0.15);
+    lb.line.material.opacity = Math.max(0, lb.life / 0.12);
     if(lb.life <= 0){
-      scene.remove(lb.line);
-      scene.remove(lb.light);
-      lb.line.geometry.dispose();
-      lb.line.material.dispose();
-      _lightningBolts.splice(i, 1);
+      lb.line.visible = false;
+      _lbActive.splice(i, 1);
+      _lbPool.push(lb);
     }
   }
 }
@@ -6161,6 +6293,8 @@ function damageZombie(z,dmg){
           health = Math.max(0, health - Math.floor(40 * falloff));
           regenTimer = 0;
           hitFlash(); updateHUD();
+          showDamageDirection(bloaterPos);
+          gpRumble(0.4, 0.8, 300);
           if(health <= 0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); } else { triggerGameOver(); } }
         }
         // Damage nearby zombies too (chain reaction potential!)
@@ -6176,6 +6310,7 @@ function damageZombie(z,dmg){
       }, 800); // 0.8 second delay — warning window
     }
     playKillConfirm();
+    gpRumble(0.1, z.boss ? 0.6 : 0.2, z.boss ? 250 : 80);
     // Leave corpse on ground instead of instant removal
     spawnCorpse(z.mesh);
     kills++; zombsLeft--;
@@ -6587,6 +6722,59 @@ function openMysteryBox(){
 }
 
 // ══════════════════════════════════════════════════
+// HORDE SURGE SYSTEM — aggression-based (not speed)
+// ══════════════════════════════════════════════════
+// Every few waves, a "surge" triggers mid-wave: zombies ignore separation,
+// stack up into a tight swarm, deal more damage, and have faster attack cooldowns.
+// No speed increase — keeps it fair at high waves.
+let surgeActive = false;
+let surgeTimer = 0;
+const SURGE_DURATION = 8;          // seconds the surge lasts
+const SURGE_INTERVAL = 4;          // trigger every N waves (wave 4, 8, 12...)
+const SURGE_ATK_CD_MULT = 0.55;    // attack cooldown multiplied (faster swings)
+const SURGE_DMG_MULT = 1.4;        // damage multiplied during surge
+let surgeScheduled = false;         // whether current wave has a surge pending
+
+function triggerHordeSurge(){
+  surgeActive = true;
+  surgeTimer = SURGE_DURATION;
+  // Visual/audio cue: red flash + banner
+  const f = document.getElementById('hflash');
+  f.style.background = 'rgba(200,0,0,.15)';
+  f.style.opacity = '1';
+  setTimeout(() => { f.style.opacity = '0'; setTimeout(() => f.style.background = 'rgba(255,0,0,.2)', 200); }, 500);
+  showBanner('⚠ HORDE SURGE ⚠');
+  gpRumble(0.2, 0.4, 400);
+  // Make all alive zombies roar (briefly show glowing eyes brighter)
+  for(const z of zombies){
+    if(!z.alive || !z.mesh) continue;
+    if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 4;
+    if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 4;
+  }
+  setTimeout(() => {
+    for(const z of zombies){
+      if(!z.alive || !z.mesh) continue;
+      if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 1.5;
+      if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 1.5;
+    }
+  }, 600);
+}
+
+function tickHordeSurge(dt){
+  if(!surgeActive) return;
+  surgeTimer -= dt;
+  if(surgeTimer <= 0){
+    surgeActive = false;
+    // Restore eye glow
+    for(const z of zombies){
+      if(!z.alive || !z.mesh) continue;
+      if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 1.5;
+      if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 1.5;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
 // WAVES
 // ══════════════════════════════════════════════════
 function startWave(w){
@@ -6601,6 +6789,13 @@ function startWave(w){
     setTimeout(()=>{ if(alive || deadThisRound) spawnBossZombie(w); }, count*650 + 1500);
   }
   showBanner(w); updateHUD();
+  // Schedule a horde surge mid-wave on surge intervals
+  surgeScheduled = false;
+  if(w >= SURGE_INTERVAL && w % SURGE_INTERVAL === 0){
+    surgeScheduled = true;
+    const surgeDelay = (count * 650 * 0.5) + 2000; // triggers roughly mid-wave
+    setTimeout(() => { if(waveActive && surgeScheduled) triggerHordeSurge(); }, surgeDelay);
+  }
   // Broadcast wave start to clients
   if(mpMode !== 'solo' && isHost){
     socket.emit('wave_event', { type:'wave_start', wave:w, count: count + (isBossRound ? 1 : 0), boss: isBossRound });
@@ -6714,11 +6909,11 @@ function tryADS(on){
 }
 document.addEventListener('mousedown',e=>{
   if(!alive || paused || downed || perkMenuOpen) return;
-  if(e.button===0) shooting=true;
+  if(e.button===0){ shooting=true; keys['_mouseShoot']=true; }
   if(e.button===2) tryADS(true);
 });
 document.addEventListener('mouseup',e=>{
-  if(e.button===0) shooting=false;
+  if(e.button===0){ shooting=false; keys['_mouseShoot']=false; }
   if(e.button===2) tryADS(false);
 });
 
@@ -6726,6 +6921,270 @@ document.addEventListener('mouseup',e=>{
 canvas.addEventListener('click',()=>{
   if((alive || deadThisRound) && !paused && gameRunning) canvas.requestPointerLock();
 });
+
+// ══════════════════════════════════════════════════
+// GAMEPAD / XBOX CONTROLLER SUPPORT
+// ══════════════════════════════════════════════════
+const GP_DEADZONE = 0.18;          // stick deadzone to prevent drift
+const GP_AIM_SENS = 3.2;           // right stick → camera speed (rad/s)
+const GP_AIM_VERT_MULT = 0.75;     // vertical aim is slightly slower
+let gpPrevButtons = [];             // previous frame button states (for edge detection)
+let gpConnected = false;
+let gpRumbleSupported = false;
+
+// Vibration helper — safe to call even if unsupported
+function gpRumble(weak, strong, duration){
+  if(!gpRumbleSupported) return;
+  try {
+    const gp = navigator.getGamepads()[0];
+    if(gp && gp.vibrationActuator){
+      gp.vibrationActuator.playEffect('dual-rumble',{
+        startDelay:0, duration, weakMagnitude:weak, strongMagnitude:strong
+      });
+    }
+  } catch(e){}
+}
+
+window.addEventListener('gamepadconnected', e => {
+  gpConnected = true;
+  gpRumbleSupported = !!(e.gamepad.vibrationActuator);
+  addFeed('Controller connected: ' + e.gamepad.id.split('(')[0].trim());
+});
+window.addEventListener('gamepaddisconnected', () => {
+  gpConnected = false;
+  addFeed('Controller disconnected');
+});
+
+function applyDeadzone(val){
+  if(Math.abs(val) < GP_DEADZONE) return 0;
+  // Remap remaining range to 0..1 for smooth response
+  const sign = val > 0 ? 1 : -1;
+  return sign * (Math.abs(val) - GP_DEADZONE) / (1 - GP_DEADZONE);
+}
+
+// ── Aim Assist (controller only) ──
+// Two-layer system: sticky aim (sens reduction) + magnetism (nudge toward head)
+const AA_CONE_HIP    = 0.35;   // assist cone in radians (~20°) from hip
+const AA_CONE_ADS    = 0.22;   // tighter cone when ADS (~12.5°)
+const AA_MAGNET_HIP  = 1.8;    // magnetism pull speed (rad/s) hip-fire
+const AA_MAGNET_ADS  = 2.8;    // stronger pull when ADS
+const AA_STICKY_MULT = 0.5;    // sensitivity multiplier when near target (50% slower)
+const AA_MAX_DIST    = 40;     // ignore zombies further than this
+const AA_HEAD_Y_OFF  = 1.6;    // head Y offset above zombie feet position
+
+function getAimAssistTarget(){
+  // Find zombie whose head is closest to crosshair center
+  // Returns { yawDelta, pitchDelta, dist, angleDist } or null
+  const cosPitch = Math.cos(fpPitch);
+  const aimX = -Math.sin(camYaw) * cosPitch;
+  const aimY = Math.sin(fpPitch);
+  const aimZ = -Math.cos(camYaw) * cosPitch;
+  const aimDir = new THREE.Vector3(aimX, aimY, aimZ).normalize();
+
+  const eyePos = SETTINGS.firstPerson || adsLerp > 0.5
+    ? cam.position
+    : new THREE.Vector3(pos.x, pos.y + 1.1, pos.z);
+
+  let best = null;
+  let bestAngle = Infinity;
+  const cone = adsActive ? AA_CONE_ADS : AA_CONE_HIP;
+
+  for(let i = 0; i < zombies.length; i++){
+    const z = zombies[i];
+    if(!z.alive || !z.mesh) continue;
+
+    // Head world position
+    const headPos = new THREE.Vector3(
+      z.mesh.position.x,
+      z.mesh.position.y + AA_HEAD_Y_OFF * (z.boss ? 1.8 : (z.elite ? 1.3 : 1)),
+      z.mesh.position.z
+    );
+
+    const toHead = headPos.clone().sub(eyePos);
+    const dist = toHead.length();
+    if(dist > AA_MAX_DIST || dist < 0.5) continue;
+
+    // Angle between aim direction and direction to head
+    const dirToHead = toHead.normalize();
+    const angle = Math.acos(Math.max(-1, Math.min(1, aimDir.dot(dirToHead))));
+    if(angle > cone) continue;
+
+    if(angle < bestAngle){
+      bestAngle = angle;
+
+      // Calculate yaw and pitch deltas needed to aim at head
+      const dx = headPos.x - eyePos.x;
+      const dy = headPos.y - eyePos.y;
+      const dz = headPos.z - eyePos.z;
+      const horizDist = Math.sqrt(dx * dx + dz * dz);
+
+      // Target yaw: atan2(-dx, -dz) to match camYaw convention
+      const targetYaw = Math.atan2(-dx, -dz);
+      let yawDelta = targetYaw - camYaw;
+      // Normalize to [-PI, PI]
+      while(yawDelta > Math.PI) yawDelta -= Math.PI * 2;
+      while(yawDelta < -Math.PI) yawDelta += Math.PI * 2;
+
+      // Target pitch
+      const targetPitch = Math.atan2(dy, horizDist);
+      const pitchDelta = targetPitch - fpPitch;
+
+      best = { yawDelta, pitchDelta, dist, angleDist: angle, cone };
+    }
+  }
+  return best;
+}
+
+function tickGamepad(dt){
+  if(!gpConnected) return;
+  const gp = navigator.getGamepads()[0];
+  if(!gp) return;
+
+  const btns = gp.buttons;
+  const axes = gp.axes;
+
+  // ── Left stick → movement (injected into keys[] object) ──
+  const lx = applyDeadzone(axes[0]);  // left/right
+  const ly = applyDeadzone(axes[1]);  // up/down
+  keys['GP_Left']  = lx < -0.1;
+  keys['GP_Right'] = lx > 0.1;
+  keys['GP_Up']    = ly < -0.1;
+  keys['GP_Down']  = ly > 0.1;
+
+  // ── Aim Assist: find closest zombie to crosshair ──
+  const aaTarget = (alive && !paused && !downed) ? getAimAssistTarget() : null;
+  const aaStickyFactor = aaTarget ? AA_STICKY_MULT : 1.0;
+
+  // ── Right stick → camera aim (with sticky slowdown near targets) ──
+  const rx = applyDeadzone(axes[2]);
+  const ry = applyDeadzone(axes[3]);
+  if(rx !== 0 || ry !== 0){
+    const fpAdsSens = SETTINGS.firstPerson ? (adsActive ? 0.45 : 1) : (1 - adsLerp * 0.55);
+    const sens = GP_AIM_SENS * fpAdsSens * aaStickyFactor;
+    camYaw -= rx * sens * dt;
+    if(SETTINGS.firstPerson || adsLerp > 0.5){
+      fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch - ry * sens * GP_AIM_VERT_MULT * dt));
+    } else {
+      camPitch = Math.max(0.15, Math.min(0.8, camPitch + ry * sens * 0.4 * dt));
+    }
+  }
+
+  // ── Aim Assist: magnetism nudge toward zombie head ──
+  if(aaTarget && alive && !paused){
+    // Strength scales: stronger when closer to target, weaker at edge of cone
+    const proximity = 1 - (aaTarget.angleDist / aaTarget.cone); // 1 at center, 0 at edge
+    const distFade = Math.max(0, 1 - aaTarget.dist / AA_MAX_DIST); // fade at range
+    const strength = proximity * proximity * distFade; // quadratic falloff feels natural
+    const magnetSpeed = adsActive ? AA_MAGNET_ADS : AA_MAGNET_HIP;
+
+    // Nudge yaw toward target head
+    const yawNudge = aaTarget.yawDelta * magnetSpeed * strength * dt;
+    camYaw += yawNudge;
+
+    // Nudge pitch toward target head (only in FP / ADS modes)
+    if(SETTINGS.firstPerson || adsLerp > 0.5){
+      const pitchNudge = aaTarget.pitchDelta * magnetSpeed * strength * dt;
+      fpPitch = Math.max(-1.2, Math.min(1.2, fpPitch + pitchNudge));
+    }
+  }
+
+  // ── Triggers ──
+  const rtVal = btns[7] ? btns[7].value : 0;  // Right trigger = shoot
+  const ltVal = btns[6] ? btns[6].value : 0;  // Left trigger = ADS
+
+  // RT → shooting (analog: >0.15 threshold)
+  shooting = rtVal > 0.15 || shooting; // don't override mouse shooting
+
+  // LT → ADS
+  if(ltVal > 0.3 && !adsActive && alive && !paused && !downed){
+    tryADS(true);
+  } else if(ltVal <= 0.3 && adsActive && gpConnected){
+    // Only release ADS if mouse button 2 isn't held
+    // We use gpConnected flag as hint that gamepad is primary input
+    tryADS(false);
+  }
+
+  // ── Button edge detection (pressed THIS frame, not last) ──
+  function justPressed(idx){
+    const curr = btns[idx] && btns[idx].pressed;
+    const prev = gpPrevButtons[idx] || false;
+    return curr && !prev;
+  }
+
+  if(!paused && alive && !downed && !perkMenuOpen){
+    // A (0) = Dash
+    if(justPressed(0)) dodge();
+
+    // B (1) = Buy / Interact
+    if(justPressed(1)) tryBuy();
+
+    // X (2) = Reload
+    if(justPressed(2)) startReload();
+
+    // Y (3) = Switch weapon (cycle through inventory)
+    if(justPressed(3)){
+      if(knifeActive){
+        knifeActive = false; activeSlot = 0;
+      } else {
+        const next = (activeSlot + 1) % inventory.length;
+        activeSlot = next;
+      }
+      updateGunVisual(); updateHUD();
+    }
+
+    // LB (4) = Ability
+    if(justPressed(4)) useAbility();
+
+    // RB (5) = Knife
+    if(justPressed(5)) equipKnife();
+
+    // L3 / Left stick click (10) = Toggle sprint
+    if(justPressed(10)){
+      keys['GP_Sprint'] = !keys['GP_Sprint'];
+    }
+    // Auto-disable sprint toggle when player stops moving
+    if(keys['GP_Sprint'] && !(keys['GP_Up']||keys['GP_Down']||keys['GP_Left']||keys['GP_Right'])){
+      keys['GP_Sprint'] = false;
+    }
+
+    // D-pad Up (12) = free
+
+    // D-pad Down (13) = Switch to next weapon slot (alternative)
+    // D-pad Left (14) = weapon slot 1
+    if(justPressed(14)){
+      if(inventory.length > 0){ knifeActive=false; activeSlot=0; updateGunVisual(); updateHUD(); }
+    }
+    // D-pad Right (15) = weapon slot 2
+    if(justPressed(15)){
+      if(inventory.length > 1){ knifeActive=false; activeSlot=1; updateGunVisual(); updateHUD(); }
+    }
+  }
+
+  // Start (9) = Pause
+  if(justPressed(9)){
+    if(perkMenuOpen){ closePerkMenu(); }
+    else if(alive && gameRunning) setPause(!paused);
+  }
+
+  // Back/Select (8) = Toggle first person
+  if(justPressed(8)){
+    SETTINGS.firstPerson = !SETTINGS.firstPerson;
+    addFeed(SETTINGS.firstPerson ? 'First Person' : 'Third Person');
+  }
+
+  // Release shooting when RT is released (only for gamepad)
+  if(rtVal <= 0.15){
+    // Don't override if mouse is still held — we only clear if this was gamepad-driven
+    // Simple approach: let mouseup handle mouse, this handles gamepad
+    if(!keys['_mouseShoot']) shooting = false;
+  }
+
+  // Store button states for next frame edge detection
+  gpPrevButtons = [];
+  for(let i = 0; i < btns.length; i++){
+    gpPrevButtons[i] = btns[i] ? btns[i].pressed : false;
+  }
+}
 
 // ══════════════════════════════════════════════════
 // SLOW MOTION SYSTEM — time dilation for cinematic moments
@@ -6736,9 +7195,8 @@ let slowMoTimer = 0;          // seconds remaining before returning to 1.0
 const SLOWMO_LERP_SPEED = 6;  // how fast we transition between scales
 
 function triggerSlowMo(scale, duration){
-  slowMoScale = scale;
-  slowMoTarget = scale;
-  slowMoTimer = duration;
+  // Disabled — caused perceived lag/stutter
+  return;
 }
 
 function tickSlowMo(realDt){
@@ -6760,6 +7218,9 @@ function loop(ts){
   requestAnimationFrame(loop);
   if(prevT===null){ prevT=ts; composer.render(); return; }
   const realDt=Math.min((ts-prevT)/1000,.05); prevT=ts;
+  // Gamepad: poll controller state each frame
+  tickGamepad(realDt);
+  tickHordeSurge(realDt);
   // Slow motion: tick the system with real time, then scale gameplay dt
   tickSlowMo(realDt);
   const dt = realDt * slowMoScale;
@@ -6862,14 +7323,14 @@ function tick(dt,ts){
     const mv=new THREE.Vector3();
     const _kb=SETTINGS.keybinds;
     if(dashT<=0){
-      if(keys[_kb.forward]||keys['ArrowUp'])    mv.z-=1;
-      if(keys[_kb.back]||keys['ArrowDown'])  mv.z+=1;
-      if(keys[_kb.left]||keys['ArrowLeft'])  mv.x-=1;
-      if(keys[_kb.right]||keys['ArrowRight']) mv.x+=1;
+      if(keys[_kb.forward]||keys['ArrowUp']||keys['GP_Up'])    mv.z-=1;
+      if(keys[_kb.back]||keys['ArrowDown']||keys['GP_Down'])  mv.z+=1;
+      if(keys[_kb.left]||keys['ArrowLeft']||keys['GP_Left'])  mv.x-=1;
+      if(keys[_kb.right]||keys['ArrowRight']||keys['GP_Right']) mv.x+=1;
     }
     const isMoving = mv.length()>0;
     const sprintKey = _kb.sprint;
-    const isSprinting = isMoving && keys[sprintKey];
+    const isSprinting = isMoving && (keys[sprintKey] || keys['GP_Sprint']);
     const moveSpeed = (isSprinting ? 9 : 5) * getSpeedMult();
 
     if(isMoving){
@@ -7092,6 +7553,32 @@ function tick(dt,ts){
   tickRemotePlayers(dt);
   tickClientZombies(dt);
 
+  // ── Spatial hash grid — O(1) neighbor lookups instead of O(n²) ──
+  const GRID_CELL = 3;
+  // Clear and rebuild grid (module-level for chain lightning access)
+  for(const k in _zGrid) delete _zGrid[k];
+  for(let zi = 0; zi < zombies.length; zi++){
+    const zz = zombies[zi];
+    if(!zz.alive) continue;
+    const cx = Math.floor(zz.mesh.position.x / GRID_CELL);
+    const cz = Math.floor(zz.mesh.position.z / GRID_CELL);
+    const key = cx + ',' + cz;
+    if(!_zGrid[key]) _zGrid[key] = [];
+    _zGrid[key].push(zz);
+  }
+  function getNearbyZombies(px, pz){
+    const cx = Math.floor(px / GRID_CELL);
+    const cz = Math.floor(pz / GRID_CELL);
+    const result = [];
+    for(let dx = -1; dx <= 1; dx++){
+      for(let dz = -1; dz <= 1; dz++){
+        const cell = _zGrid[(cx+dx)+','+(cz+dz)];
+        if(cell) for(let i = 0; i < cell.length; i++) result.push(cell[i]);
+      }
+    }
+    return result;
+  }
+
   // Bullets
   for(let i=bullets.length-1;i>=0;i--){
     const b=bullets[i];
@@ -7109,7 +7596,9 @@ function tick(dt,ts){
     // Track which zombies this bullet already hit (for penetration)
     if(!b._hitSet) b._hitSet = new Set();
     let removeBullet=false;
-    for(const z of zombies){
+    const _bNearZ = getNearbyZombies(hitCheckPos.x, hitCheckPos.z);
+    for(let _bzi = 0; _bzi < _bNearZ.length; _bzi++){
+      const z = _bNearZ[_bzi];
       if(!z.alive) continue;
       if(b._hitSet.has(z)) continue;
       // Hitbox center & radius scale with elite size so the full
@@ -7256,13 +7745,17 @@ function tick(dt,ts){
       const cMeleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
       if(dist<cMeleeRange){
         z.atkT-=dt;
+        const atkCDEff = surgeActive ? z.atkCD * SURGE_ATK_CD_MULT : z.atkCD;
         if(z.atkT<=0){
-          z.atkT=z.atkCD; z.punchT=0.35;
+          z.atkT=atkCDEff; z.punchT=0.35;
           if(invT<=0 && !modGodMode){
-            health=Math.max(0,health-(z.meleeDmg||10));
+            const dmg = Math.floor((z.meleeDmg||10) * (surgeActive ? SURGE_DMG_MULT : 1));
+            health=Math.max(0,health-dmg);
             regenTimer=0;
             hitFlash(); updateHUD();
+            showDamageDirection(z.mesh.position);
             triggerShake(z.boss ? 0.4 : (z.elite ? 0.2 : 0.12), 8);
+            gpRumble(0.3, z.boss ? 0.8 : 0.5, z.boss ? 300 : 150);
             if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         }
@@ -7305,10 +7798,12 @@ function tick(dt,ts){
     const dist = toP.length();
 
     if(dist>.05){
-      // ── Context steering: sample 16 directions, score each ──
-      const NUM_DIRS=16;
+      // ── Context steering: sample 8 directions, score each ──
+      const NUM_DIRS=8;
       const ZR=0.5; // zombie collision radius
       let bestScore=-Infinity, bestDx=toP.x/dist, bestDz=toP.z/dist;
+      // Spatial grid neighbor lookup (done once per zombie, reused for separation + push-out)
+      const _nearZ = getNearbyZombies(z.mesh.position.x, z.mesh.position.z);
 
       for(let d=0;d<NUM_DIRS;d++){
         const angle=(d/NUM_DIRS)*Math.PI*2;
@@ -7330,14 +7825,21 @@ function tick(dt,ts){
         // Arena wall penalty
         if(Math.abs(testX)>ARENA-1.2||Math.abs(testZ)>ARENA-1.2) blocked=2.0;
 
-        // 3. Separation: avoid overlapping other zombies
+        // 3. Separation: avoid overlapping other zombies (spatial grid lookup)
         let sep=0;
-        for(const z2 of zombies){
-          if(z2===z||!z2.alive) continue;
+        const sepMult = surgeActive ? 0.3 : 1;
+        const SEP_RADIUS = (z.boss ? 2.5 : (z.elite ? 2.0 : 1.6)) * (surgeActive ? 0.5 : 1);
+        const nearby = _nearZ;
+        for(let ni = 0; ni < nearby.length; ni++){
+          const z2 = nearby[ni];
+          if(z2===z) continue;
           const sdx=z2.mesh.position.x-z.mesh.position.x;
           const sdz=z2.mesh.position.z-z.mesh.position.z;
           const sd=Math.sqrt(sdx*sdx+sdz*sdz);
-          if(sd<1.2) sep+=(dx*(sdx/sd)+dz*(sdz/sd))*0.4;
+          if(sd<SEP_RADIUS){
+            const pushStr = 1 - sd / SEP_RADIUS;
+            sep += (dx*(sdx/(sd||1))+dz*(sdz/(sd||1))) * (0.6 + pushStr * 0.8) * sepMult;
+          }
         }
 
         const score=desire-blocked-sep;
@@ -7352,6 +7854,21 @@ function tick(dt,ts){
       // Hard push-out safety net (last resort, shouldn't trigger often)
       resolveObs(z.mesh.position, ZR);
       clampArena(z.mesh.position);
+
+      // Hard push-out: separate overlapping zombies (uses spatial grid)
+      const HARD_SEP = (z.boss ? 1.4 : (z.elite ? 1.0 : 0.7)) * (surgeActive ? 0.4 : 1);
+      for(let ni = 0; ni < _nearZ.length; ni++){
+        const z2 = _nearZ[ni];
+        if(z2===z) continue;
+        const hsx=z.mesh.position.x-z2.mesh.position.x;
+        const hsz=z.mesh.position.z-z2.mesh.position.z;
+        const hsd=Math.sqrt(hsx*hsx+hsz*hsz);
+        if(hsd<HARD_SEP && hsd>0.01){
+          const push=(HARD_SEP-hsd)*0.5;
+          z.mesh.position.x+=hsx/hsd*push;
+          z.mesh.position.z+=hsz/hsd*push;
+        }
+      }
 
       // Push zombie out of ALL players so they don't clip through
       const allPlayerPositions = [pos];
@@ -7372,53 +7889,64 @@ function tick(dt,ts){
       // Face movement direction — smooth rotation to avoid snapping
       const targetRot = Math.atan2(bestDx, bestDz) + Math.PI;
       let rotDiff = targetRot - z.mesh.rotation.y;
-      // Normalize to [-PI, PI]
       while(rotDiff > Math.PI) rotDiff -= Math.PI*2;
       while(rotDiff < -Math.PI) rotDiff += Math.PI*2;
       z.mesh.rotation.y += rotDiff * Math.min(1, dt * 10);
 
-      // Leg animation — swing via hip pivots (prevents clipping through torso)
-      const legSwing = Math.sin(z.legPhase) * 0.38;
-      if(z.mesh.userData.legL) z.mesh.userData.legL.rotation.x =  legSwing;
-      if(z.mesh.userData.legR) z.mesh.userData.legR.rotation.x = -legSwing;
-      // Slight torso lean into movement
-      z.mesh.children[0] && (z.mesh.children[0].rotation.x = -0.08 * lurch);
+      // LOD: skip limb animations for zombies far from camera (>18 units)
+      const camDist = z.mesh.position.distanceTo(cam.position);
+      if(camDist < 18){
+        // Leg animation — swing via hip pivots
+        const legSwing = Math.sin(z.legPhase) * 0.38;
+        if(z.mesh.userData.legL) z.mesh.userData.legL.rotation.x =  legSwing;
+        if(z.mesh.userData.legR) z.mesh.userData.legR.rotation.x = -legSwing;
+        // Slight torso lean into movement
+        z.mesh.children[0] && (z.mesh.children[0].rotation.x = -0.08 * lurch);
+      }
     }
 
-    // Punch animation tick
-    if(z.punchT > 0){
-      z.punchT -= dt;
-      const p = Math.max(0, z.punchT);
-      const swing = Math.sin((1 - p/0.35) * Math.PI) * -1.4; // fast forward swing arc
-      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = swing;
-      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = swing;
+    // Punch animation tick (LOD: only animate arms for nearby zombies)
+    const camDist2 = z.mesh.position.distanceTo(cam.position);
+    if(camDist2 < 20){
+      if(z.punchT > 0){
+        z.punchT -= dt;
+        const p = Math.max(0, z.punchT);
+        const swing = Math.sin((1 - p/0.35) * Math.PI) * -1.4;
+        if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = swing;
+        if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = swing;
+      } else {
+        if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = -0.6;
+        if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = -0.6;
+      }
     } else {
-      // Resting arm pose
-      if(z.mesh.userData.armL) z.mesh.userData.armL.rotation.x = -0.6;
-      if(z.mesh.userData.armR) z.mesh.userData.armR.rotation.x = -0.6;
+      z.punchT = Math.max(0, z.punchT - dt); // still tick timer, skip visual
     }
 
     // Melee damage — zombie hits whichever player is closest
     const meleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
     if(dist<meleeRange){
       z.atkT-=dt;
+      const atkCDEff = surgeActive ? z.atkCD * SURGE_ATK_CD_MULT : z.atkCD;
       if(z.atkT<=0){
-        z.atkT=z.atkCD; z.punchT=0.35;
+        z.atkT=atkCDEff; z.punchT=0.35;
+        const surgeDmg = surgeActive ? SURGE_DMG_MULT : 1;
         // Check if the closest target is the local (host) player
         if(closestPos === pos){
           // FIX: Skip melee damage if host is downed — downed players die only from bleedout timer
           if(!downed && invT<=0 && !modGodMode){
-            health=Math.max(0,health-(z.meleeDmg||10));
+            health=Math.max(0,health-Math.floor((z.meleeDmg||10)*surgeDmg));
             regenTimer=0;
             hitFlash(); updateHUD();
+            showDamageDirection(z.mesh.position);
             triggerShake(z.boss ? 0.4 : (z.elite ? 0.2 : 0.12), 8);
+            gpRumble(0.3, z.boss ? 0.8 : 0.5, z.boss ? 300 : 150);
             if(health<=0){ if(mpMode!=='solo'&&!downed){ enterDownedState(); return; } if(trySoloQuickRevive()) return; triggerGameOver(); return; }
           }
         } else {
           // Closest target is a remote player — tell them to take damage
           for(const rpId in remotePlayers){
             if(remotePlayers[rpId].mesh.position === closestPos){
-              socket.emit('zombie_melee_hit', { targetId: rpId, dmg: z.meleeDmg||10 });
+              socket.emit('zombie_melee_hit', { targetId: rpId, dmg: Math.floor((z.meleeDmg||10)*surgeDmg) });
               break;
             }
           }
@@ -7726,6 +8254,41 @@ function getRevived(){
 }
 
 // ── Bleed out (downed timer expired) — true death ──
+// ══════════════════════════════════════════════════
+// PERSISTENT PROGRESSION — localStorage career stats
+// ══════════════════════════════════════════════════
+const STATS_KEY = 'deadzone_career';
+function loadCareerStats(){
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  return { bestScore:0, bestWave:0, bestKills:0, totalKills:0, totalHS:0, totalGames:0, totalScore:0 };
+}
+function saveCareerStats(stats){
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch(e){}
+}
+function updateCareerOnGameOver(){
+  const stats = loadCareerStats();
+  let isNewBest = false;
+  if(score > stats.bestScore){ stats.bestScore = score; isNewBest = true; }
+  if(wave > stats.bestWave){ stats.bestWave = wave; isNewBest = true; }
+  if(kills > stats.bestKills){ stats.bestKills = kills; isNewBest = true; }
+  stats.totalKills += kills;
+  stats.totalHS += headshotCount;
+  stats.totalGames += 1;
+  stats.totalScore += score;
+  saveCareerStats(stats);
+  // Update game over screen
+  document.getElementById('goBestScore').textContent = stats.bestScore.toLocaleString();
+  document.getElementById('goBestWave').textContent = stats.bestWave;
+  document.getElementById('goBestKills').textContent = stats.bestKills;
+  document.getElementById('goGames').textContent = stats.totalGames;
+  document.getElementById('goHS').textContent = headshotCount;
+  document.getElementById('goNewBest').style.opacity = isNewBest ? '1' : '0';
+  return stats;
+}
+
 function triggerGameOver(){
   // In multiplayer: enter dead-spectator state (respawn next wave) instead of ending the game
   if(mpMode !== 'solo'){
@@ -7753,6 +8316,7 @@ function triggerGameOver(){
   document.getElementById('goScore').textContent=score.toLocaleString();
   document.getElementById('goWave').textContent=wave;
   document.getElementById('goKills').textContent=kills;
+  updateCareerOnGameOver();
   document.getElementById('goScreen').classList.remove('off');
 }
 
@@ -8701,17 +9265,21 @@ function startAmbientDrone(mapId){
     osc.start(); osc2.start();
     _ambientDrone = {osc, osc2};
   } else if(mapId === 'carnival'){
-    // Distorted calliope — detuned square wave arpeggios
-    const osc = sfxCtx.createOscillator(); osc.type='square';
-    // Slow arpeggio using frequency LFO
-    const lfo = sfxCtx.createOscillator(); lfo.type='triangle'; lfo.frequency.value=0.3;
-    const lfoGain = sfxCtx.createGain(); lfoGain.gain.value=60;
-    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
-    osc.frequency.value=220;
-    const lp = sfxCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=400;
-    osc.connect(lp); lp.connect(_ambientDroneGain);
-    osc.start(); lfo.start();
-    _ambientDrone = {osc, lfo};
+    // Eerie low hum — dark ambient drone (no siren/calliope)
+    const osc = sfxCtx.createOscillator(); osc.type='sine'; osc.frequency.value=42;
+    const osc2 = sfxCtx.createOscillator(); osc2.type='sine'; osc2.frequency.value=44.5; // slight detune for unease
+    const g2 = sfxCtx.createGain(); g2.gain.value=0.4;
+    // Filtered noise layer for creepy wind
+    const nBuf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*2, sfxCtx.sampleRate);
+    const nd = nBuf.getChannelData(0);
+    for(let i=0;i<nd.length;i++) nd[i]=(Math.random()*2-1);
+    const nSrc = sfxCtx.createBufferSource(); nSrc.buffer=nBuf; nSrc.loop=true;
+    const bp = sfxCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=180; bp.Q.value=3;
+    const nGain = sfxCtx.createGain(); nGain.gain.value=0.25;
+    nSrc.connect(bp); bp.connect(nGain); nGain.connect(_ambientDroneGain);
+    osc.connect(_ambientDroneGain); osc2.connect(g2); g2.connect(_ambientDroneGain);
+    osc.start(); osc2.start(); nSrc.start();
+    _ambientDrone = {osc, osc2, nSrc};
   }
 }
 
@@ -9282,6 +9850,7 @@ socket.on('game_over_all', () => {
   document.getElementById('goScore').textContent=score.toLocaleString();
   document.getElementById('goWave').textContent=wave;
   document.getElementById('goKills').textContent=kills;
+  updateCareerOnGameOver();
   document.getElementById('goScreen').classList.remove('off');
 });
 
