@@ -3482,7 +3482,7 @@ const GUNS={
   flamethrower:{name:'FLAMER',     dmg:18,  rof:0.06,mag:100,res:200, reload:2.2,cost:4500, color:0xff4400,auto:true, spread:0.15, bulletSpd:15,pellets:1,fire:true},
   burst:       {name:'BURST RIFLE',dmg:45, rof:0.38,mag:24, res:120, reload:1.8,cost:2800, color:0x3366aa,auto:false,spread:0.015,bulletSpd:50,pellets:1,burst:3,burstDelay:0.06},
   autoshotgun: {name:'AUTO SHOTGUN',dmg:40,rof:0.28,mag:16, res:80,  reload:2.4,cost:3000, color:0x885533,auto:false,spread:0.10, bulletSpd:30,pellets:8},
-  reaper:      {name:'THE REAPER',  dmg:45, rof:0.07,mag:60, res:180, reload:3.0,cost:0,    color:0x00ccff,auto:true, spread:0.04, bulletSpd:50,pellets:1,chain:true,chainCount:3,chainRange:8},
+  reaper:      {name:'THE REAPER',  dmg:500, rof:0.8,mag:12, res:48, reload:3.0,cost:0,    color:0x00ccff,auto:true, spread:0.04, bulletSpd:50,pellets:1,chain:true,chainCount:15,chainRange:14},
   raygun:      {name:'RAY GUN',     dmg:160,rof:0.32,mag:20, res:100, reload:2.2,cost:0,    color:0x00ff44,auto:false,spread:0,    bulletSpd:28,pellets:1,splash:true,splashRadius:3.5},
 };
 
@@ -3509,7 +3509,7 @@ const PAP_UPGRADES = {
   flamethrower:{name:"DRAGON'S BREATH",dmg:42, mag:150,res:350, color:0xff00aa, rof:0.05},
   burst:       {name:"HELLFIRE SALVO", dmg:95, mag:36, res:216, color:0x6644ff, rof:0.30, burst:3, burstDelay:0.045},
   autoshotgun: {name:"STREET SWEEPER", dmg:80, mag:24, res:144, color:0xcc44ff, rof:0.22, pellets:10},
-  reaper:      {name:"ZEUS' WRATH",   dmg:95, mag:90, res:360, color:0x88eeff, rof:0.05, chain:true, chainCount:5, chainRange:12},
+  reaper:      {name:"ZEUS' WRATH",   dmg:1000, mag:18, res:72, color:0x88eeff, rof:0.6, chain:true, chainCount:25, chainRange:18},
   raygun:      {name:"PORTER'S RAY MK2",dmg:350,mag:30,res:180,color:0x44ff88, rof:0.24, splash:true, splashRadius:5.5},
 };
 
@@ -5413,7 +5413,7 @@ function grenadeExplode(ePos){
   if(typeof playExplosionSfx === 'function') playExplosionSfx(true);
   // Damage zombies in radius
   const radius = 8;
-  const dmg = 150;
+  const dmg = 300;
   for(const z of zombies){
     if(!z.alive) continue;
     const dx = z.mesh.position.x - ePos.x;
@@ -5455,7 +5455,7 @@ function activateDecoy(){
   dLight.position.y = 1.3; dGroup.add(dLight);
   dGroup.position.copy(dPos);
   scene.add(dGroup);
-  decoyObj = { mesh: dGroup, light: dLight, lifeT: 6, pos: dPos };
+  decoyObj = { mesh: dGroup, light: dLight, lifeT: 8, pos: dPos };
 }
 
 function tickDecoy(dt){
@@ -5530,7 +5530,7 @@ function tickTurret(dt){
       turretObj.muzzle.intensity = 3;
       setTimeout(()=>{ if(turretObj) turretObj.muzzle.intensity = 0; }, 60);
       // Damage zombie
-      const dmg = 20;
+      const dmg = 50;
       nearest.hp -= dmg;
       // Small blood effect
       bloodBurst(nearest.mesh.position, 0x880000);
@@ -5559,11 +5559,11 @@ function tickTurret(dt){
 // ── Medic: Healing Pulse ──
 function activateHealPulse(){
   // Heal self
-  health = Math.min(health + 100, 200);
+  health = Math.min(health + 125, 200);
   updateHUD();
   // Heal remote players (send via server)
   if(mpMode !== 'solo' && socket){
-    socket.emit('heal_pulse', { amount: 100 });
+    socket.emit('heal_pulse', { amount: 125 });
   }
   // Visual: expanding green ring
   const ring = new THREE.Mesh(
@@ -5681,7 +5681,7 @@ function raygunSplashBurst(p, packed){
 // ── Chain Lightning (The Reaper) — arcs from target to nearby zombies ──
 function chainLightningArc(startZombie, baseDmg, jumpsLeft, range, hitSet, packed){
   let current = startZombie;
-  let dmg = Math.floor(baseDmg * 0.7);
+  const dmg = baseDmg;
   for(let j = 0; j < jumpsLeft; j++){
     // Spatial grid lookup instead of scanning ALL zombies
     let nearest = null, nearDist = range;
@@ -5708,18 +5708,16 @@ function chainLightningArc(startZombie, baseDmg, jumpsLeft, range, hitSet, packe
       nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)),
       packed ? 0x88eeff : 0x00ccff
     );
-    const chainDmg = Math.floor(dmg);
     bloodBurst(nearest.mesh.position.clone().add(new THREE.Vector3(0,1,0)), 0x00ccff);
-    dmgPop(nearest.mesh.position.clone().add(new THREE.Vector3(0,2,0)), chainDmg, false);
+    dmgPop(nearest.mesh.position.clone().add(new THREE.Vector3(0,2,0)), dmg, false);
     if(mpMode==='client'){
       const zIdx = zombies.indexOf(nearest);
-      socket.emit('client_zombie_hit',{indices:[zIdx],dmg:chainDmg,explosive:false});
+      socket.emit('client_zombie_hit',{indices:[zIdx],dmg:dmg,explosive:false});
     } else {
-      damageZombie(nearest, chainDmg);
+      damageZombie(nearest, dmg);
     }
     hitSet.add(nearest);
     current = nearest;
-    dmg = Math.floor(dmg * 0.8); // each jump does less
   }
 }
 
@@ -6721,58 +6719,6 @@ function openMysteryBox(){
   addFeed('Mystery box: '+g.name+'!'); updateHUD();
 }
 
-// ══════════════════════════════════════════════════
-// HORDE SURGE SYSTEM — aggression-based (not speed)
-// ══════════════════════════════════════════════════
-// Every few waves, a "surge" triggers mid-wave: zombies ignore separation,
-// stack up into a tight swarm, deal more damage, and have faster attack cooldowns.
-// No speed increase — keeps it fair at high waves.
-let surgeActive = false;
-let surgeTimer = 0;
-const SURGE_DURATION = 8;          // seconds the surge lasts
-const SURGE_INTERVAL = 4;          // trigger every N waves (wave 4, 8, 12...)
-const SURGE_ATK_CD_MULT = 0.55;    // attack cooldown multiplied (faster swings)
-const SURGE_DMG_MULT = 1.4;        // damage multiplied during surge
-let surgeScheduled = false;         // whether current wave has a surge pending
-
-function triggerHordeSurge(){
-  surgeActive = true;
-  surgeTimer = SURGE_DURATION;
-  // Visual/audio cue: red flash + banner
-  const f = document.getElementById('hflash');
-  f.style.background = 'rgba(200,0,0,.15)';
-  f.style.opacity = '1';
-  setTimeout(() => { f.style.opacity = '0'; setTimeout(() => f.style.background = 'rgba(255,0,0,.2)', 200); }, 500);
-  showBanner('⚠ HORDE SURGE ⚠');
-  gpRumble(0.2, 0.4, 400);
-  // Make all alive zombies roar (briefly show glowing eyes brighter)
-  for(const z of zombies){
-    if(!z.alive || !z.mesh) continue;
-    if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 4;
-    if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 4;
-  }
-  setTimeout(() => {
-    for(const z of zombies){
-      if(!z.alive || !z.mesh) continue;
-      if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 1.5;
-      if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 1.5;
-    }
-  }, 600);
-}
-
-function tickHordeSurge(dt){
-  if(!surgeActive) return;
-  surgeTimer -= dt;
-  if(surgeTimer <= 0){
-    surgeActive = false;
-    // Restore eye glow
-    for(const z of zombies){
-      if(!z.alive || !z.mesh) continue;
-      if(z.mesh.userData.eyeL) z.mesh.userData.eyeL.material.emissiveIntensity = 1.5;
-      if(z.mesh.userData.eyeR) z.mesh.userData.eyeR.material.emissiveIntensity = 1.5;
-    }
-  }
-}
 
 // ══════════════════════════════════════════════════
 // WAVES
@@ -6789,13 +6735,6 @@ function startWave(w){
     setTimeout(()=>{ if(alive || deadThisRound) spawnBossZombie(w); }, count*650 + 1500);
   }
   showBanner(w); updateHUD();
-  // Schedule a horde surge mid-wave on surge intervals
-  surgeScheduled = false;
-  if(w >= SURGE_INTERVAL && w % SURGE_INTERVAL === 0){
-    surgeScheduled = true;
-    const surgeDelay = (count * 650 * 0.5) + 2000; // triggers roughly mid-wave
-    setTimeout(() => { if(waveActive && surgeScheduled) triggerHordeSurge(); }, surgeDelay);
-  }
   // Broadcast wave start to clients
   if(mpMode !== 'solo' && isHost){
     socket.emit('wave_event', { type:'wave_start', wave:w, count: count + (isBossRound ? 1 : 0), boss: isBossRound });
@@ -7220,7 +7159,6 @@ function loop(ts){
   const realDt=Math.min((ts-prevT)/1000,.05); prevT=ts;
   // Gamepad: poll controller state each frame
   tickGamepad(realDt);
-  tickHordeSurge(realDt);
   // Slow motion: tick the system with real time, then scale gameplay dt
   tickSlowMo(realDt);
   const dt = realDt * slowMoScale;
@@ -7745,11 +7683,10 @@ function tick(dt,ts){
       const cMeleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
       if(dist<cMeleeRange){
         z.atkT-=dt;
-        const atkCDEff = surgeActive ? z.atkCD * SURGE_ATK_CD_MULT : z.atkCD;
         if(z.atkT<=0){
-          z.atkT=atkCDEff; z.punchT=0.35;
+          z.atkT=z.atkCD; z.punchT=0.35;
           if(invT<=0 && !modGodMode){
-            const dmg = Math.floor((z.meleeDmg||10) * (surgeActive ? SURGE_DMG_MULT : 1));
+            const dmg = Math.floor(z.meleeDmg||10);
             health=Math.max(0,health-dmg);
             regenTimer=0;
             hitFlash(); updateHUD();
@@ -7827,8 +7764,8 @@ function tick(dt,ts){
 
         // 3. Separation: avoid overlapping other zombies (spatial grid lookup)
         let sep=0;
-        const sepMult = surgeActive ? 0.3 : 1;
-        const SEP_RADIUS = (z.boss ? 2.5 : (z.elite ? 2.0 : 1.6)) * (surgeActive ? 0.5 : 1);
+        const sepMult = 1;
+        const SEP_RADIUS = z.boss ? 2.5 : (z.elite ? 2.0 : 1.6);
         const nearby = _nearZ;
         for(let ni = 0; ni < nearby.length; ni++){
           const z2 = nearby[ni];
@@ -7856,7 +7793,7 @@ function tick(dt,ts){
       clampArena(z.mesh.position);
 
       // Hard push-out: separate overlapping zombies (uses spatial grid)
-      const HARD_SEP = (z.boss ? 1.4 : (z.elite ? 1.0 : 0.7)) * (surgeActive ? 0.4 : 1);
+      const HARD_SEP = z.boss ? 1.4 : (z.elite ? 1.0 : 0.7);
       for(let ni = 0; ni < _nearZ.length; ni++){
         const z2 = _nearZ[ni];
         if(z2===z) continue;
@@ -7926,15 +7863,13 @@ function tick(dt,ts){
     const meleeRange = z.boss ? 2.2 : (z.elite ? 1.6 : 1.3);
     if(dist<meleeRange){
       z.atkT-=dt;
-      const atkCDEff = surgeActive ? z.atkCD * SURGE_ATK_CD_MULT : z.atkCD;
       if(z.atkT<=0){
-        z.atkT=atkCDEff; z.punchT=0.35;
-        const surgeDmg = surgeActive ? SURGE_DMG_MULT : 1;
+        z.atkT=z.atkCD; z.punchT=0.35;
         // Check if the closest target is the local (host) player
         if(closestPos === pos){
           // FIX: Skip melee damage if host is downed — downed players die only from bleedout timer
           if(!downed && invT<=0 && !modGodMode){
-            health=Math.max(0,health-Math.floor((z.meleeDmg||10)*surgeDmg));
+            health=Math.max(0,health-Math.floor((z.meleeDmg||10)));
             regenTimer=0;
             hitFlash(); updateHUD();
             showDamageDirection(z.mesh.position);
@@ -7946,7 +7881,7 @@ function tick(dt,ts){
           // Closest target is a remote player — tell them to take damage
           for(const rpId in remotePlayers){
             if(remotePlayers[rpId].mesh.position === closestPos){
-              socket.emit('zombie_melee_hit', { targetId: rpId, dmg: Math.floor((z.meleeDmg||10)*surgeDmg) });
+              socket.emit('zombie_melee_hit', { targetId: rpId, dmg: Math.floor((z.meleeDmg||10)) });
               break;
             }
           }
