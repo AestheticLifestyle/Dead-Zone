@@ -1033,6 +1033,82 @@ const MAPS = {
     // SINGLE PERK MACHINE — near gas station
     perkMachinePos: {x:-12,y:0,z:13},
   },
+  island: {
+    id:'island', name:'Dead Tide Island', icon:'🏝️',
+    music:'/game-music.mp3',
+    theme:'Tropical zombie island',
+    desc:'A cursed island surrounded by dark water. Loop the jungle trail, hold the central camp, and survive the tide.',
+    tag:'NEW',
+    arena: 44,
+    groundColor: 0x1a2810,       // dark tropical green-brown
+    fogColor: 0x0a1210, fogDensity: 0.019,
+    clearColor: 0x0a1210,
+    ambientColor: 0x1a3028, ambientIntensity: 1.7,
+    sunColor: 0x6699aa, sunIntensity: 0.80,   // overcast moonlight
+    sunPos: {x:-18,y:30,z:12},
+    gridColor1: 0x1a2810, gridColor2: 0x142008,
+    perimeterCount: 0, perimeterColor: 0x1a2810,
+    perimeterRadius: 44, perimeterSpread: 3,
+    obstacles: [
+      // ── Spawn Beach (south, z:28..36) — flat open, minimal cover ──
+      {x:-6, z:32, w:3, h:1.0, d:2},     // driftwood log
+      {x:7,  z:30, w:2, h:0.8, d:2},     // supply crate (first weapon)
+      {x:0,  z:35, w:5, h:0.6, d:2},     // beached rowboat hull
+
+      // ── Jungle Loop Path — wide rock markers along the loop ──
+      // West side (going north from beach)
+      {x:-28, z:20, w:3, h:1.8, d:3},    // jungle boulder west-south
+      {x:-32, z:6,  w:3, h:2.0, d:2.5},  // jungle boulder west-mid
+      {x:-30, z:-10,w:2.5,h:1.5,d:2.5},  // jungle boulder west-north
+      // East side (going north from beach)
+      {x:28,  z:18, w:3, h:1.8, d:2.5},  // jungle boulder east-south
+      {x:32,  z:2,  w:2.5,h:2.0,d:3},    // jungle boulder east-mid
+      {x:28,  z:-12,w:3, h:1.5, d:2.5},  // jungle boulder east-north
+
+      // ── West Rest Stop — washed-up cargo container (z:4..10) ──
+      {x:-24, z:8,  w:6, h:2.2, d:3},    // shipping container (main cover piece)
+      {x:-20, z:12, w:2, h:0.8, d:2},    // spilled supply crate
+      {x:-28, z:10, w:2, h:1.0, d:1.5},  // barnacle-covered rock
+
+      // ── East Rest Stop — collapsed research tent (z:-4..4) ──
+      {x:24,  z:0,  w:5, h:2.0, d:3.5},  // collapsed tent frame (wide, low)
+      {x:22,  z:6,  w:2, h:0.8, d:2},    // equipment case (moved west, clear of perk machine)
+      {x:22,  z:-4, w:2, h:1.0, d:2},    // overturned table
+
+      // ── Central Camp (center, around origin) — main open area ──
+      {x:-5, z:2,  w:3, h:1.0, d:2},     // ammo crate stack
+      {x:5,  z:-2, w:2, h:0.8, d:3},     // supply table
+      {x:0,  z:6,  w:1.5,h:0.7,d:1.5},   // fire pit ring
+      {x:-8, z:-4, w:4, h:2.5, d:3},     // canvas tent frame (open sides)
+      {x:8,  z:4,  w:4, h:2.5, d:3},     // canvas tent frame 2
+
+      // ── Watchtower Hill (northwest, x:-20, z:-26) — wide slope, PaP has 4+ unit clearance ──
+      {x:-20,z:-26,w:3, h:6,   d:3},     // watchtower base (moved north from -22 to -26)
+      {x:-14,z:-24,w:6, h:0.5, d:8},     // wide slope ramp (shifted east, away from PaP)
+      {x:-27,z:-24,w:2.5,h:1.2,d:2.5},   // supply barrel cluster (moved far west)
+      {x:-16,z:-32,w:2, h:1.0, d:2},     // rock near hilltop
+
+      // ── Plane Wreck Area (northeast, x:18, z:-20) — spread out ──
+      {x:18, z:-20,w:8, h:2.5, d:4},     // fuselage section (main wreck)
+      {x:26, z:-24,w:3, h:1.5, d:5},     // detached wing piece
+      {x:14, z:-26,w:4, h:1.0, d:2.5},   // tail section debris
+      {x:22, z:-16,w:2, h:0.8, d:2},     // scattered luggage pile
+      {x:12, z:-18,w:2, h:1.0, d:2},     // engine chunk
+
+      // ── Loop connector rocks (north, connecting tower-to-wreck) ──
+      {x:-4, z:-30,w:2.5,h:1.5,d:2.5},   // path rock north-center
+      {x:6,  z:-32,w:2, h:1.2, d:2},     // path rock north-east
+    ],
+    obstacleColors: [0x3a3828, 0x2a2618, 0x4a4230, 0x1e2a14],
+    mysteryBoxPos: {x:0,y:0,z:0},                // central camp — center of the island
+    papPos: {x:-22,y:0,z:-18},                    // near watchtower hill — exposed, risky, 4+ unit clearance all sides
+    playerSpawns: [{x:-2,y:0,z:30},{x:2,y:0,z:30},{x:-2,y:0,z:34},{x:2,y:0,z:34}],
+    soloSpawn: {x:0,y:0,z:32},
+    zombieSpawnRadius: 42, zombieSpawnSpread: 5,
+    decorations: 'island',
+    // PERK MACHINE — east loop rest stop, forces players to travel the loop
+    perkMachinePos: {x:26,y:0,z:8}, perkMachineRot: Math.PI*0.25,
+  },
   carnival: {
     id:'carnival', name:'Dark Carnival', icon:'🎪',
     music:'/music-carnival.mp3',
@@ -1198,6 +1274,7 @@ composer.addPass(colorGradePass);
 const MAP_PP_PRESETS = {
   farm:     { saturation: 0.72, contrast: 1.22, brightness: -0.03, tint: [0.85, 0.95, 1.12], vignetteStr: 0.60 }, // cold moonlit blue
   redline:  { saturation: 0.88, contrast: 1.18, brightness: -0.01, tint: [1.12, 0.92, 0.78], vignetteStr: 0.50 }, // hot desert amber
+  island:   { saturation: 0.78, contrast: 1.20, brightness: -0.02, tint: [0.88, 1.05, 1.02], vignetteStr: 0.55 }, // eerie tropical teal-green
   carnival: { saturation: 0.95, contrast: 1.28, brightness: -0.02, tint: [1.02, 0.85, 1.08], vignetteStr: 0.65 }, // neon purple haze
 };
 
@@ -1363,6 +1440,7 @@ function buildMap(mapId){
   // Map-specific decorations
   if(cfg.decorations === 'farm') buildFarmDecorations();
   if(cfg.decorations === 'redline') buildRedlineDecorations();
+  if(cfg.decorations === 'island') buildIslandDecorations();
   if(cfg.decorations === 'carnival') buildCarnivalDecorations();
 
   // ── Atmospheric ground fog planes ──
@@ -3025,6 +3103,371 @@ function buildOutpostDecorations(){
 }
 
 // ══════════════════════════════════════════════════
+// DEAD TIDE ISLAND — custom decorations
+// ══════════════════════════════════════════════════
+function buildIslandDecorations(){
+  const addObj = (m) => { scene.add(m); mapSceneObjects.push(m); };
+  const mkBox = (w,h,d,col) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:col}));
+    m.castShadow=true; m.receiveShadow=true; return m;
+  };
+
+  // ── Helper: palm tree (trunk + top leaves, no collision — decorative only) ──
+  function buildPalmTree(px,pz,height,lean){
+    // Trunk — tall cylinder via thin box
+    const trunk = mkBox(0.5, height, 0.5, 0x5a4a28);
+    trunk.position.set(px, height/2, pz);
+    trunk.rotation.z = lean || 0;
+    addObj(trunk);
+    // Leaf cluster — 4 flat boxes radiating outward
+    const leafCol = 0x1a4a18;
+    for(let i=0;i<4;i++){
+      const angle = (Math.PI*2/4)*i + Math.random()*0.5;
+      const lLen = 2.5 + Math.random()*1.5;
+      const leaf = mkBox(lLen, 0.1, 0.8, leafCol);
+      const offsetX = px + Math.cos(angle)*lLen*0.4 + (lean ? Math.sin(lean)*height*0.3 : 0);
+      const offsetZ = pz + Math.sin(angle)*lLen*0.4;
+      leaf.position.set(offsetX, height-0.3+Math.random()*0.3, offsetZ);
+      leaf.rotation.y = angle;
+      leaf.rotation.z = 0.3+Math.random()*0.3;
+      addObj(leaf);
+    }
+    // Coconut cluster
+    for(let c=0;c<2;c++){
+      const coco = new THREE.Mesh(
+        new THREE.SphereGeometry(0.15,4,4),
+        new THREE.MeshStandardMaterial({color:0x5a3a18})
+      );
+      coco.position.set(px+(Math.random()-0.5)*0.4, height-0.7, pz+(Math.random()-0.5)*0.4);
+      coco.castShadow=true;
+      addObj(coco);
+    }
+  }
+
+  // ── Helper: rock formation (no collision — decorative, placed at edges) ──
+  function buildRock(rx,rz,scale){
+    const s = scale || 1;
+    const rock = mkBox(1.8*s, 1.2*s, 1.6*s, 0x3a3a30);
+    rock.position.set(rx, 0.6*s, rz);
+    rock.rotation.y = Math.random()*Math.PI;
+    addObj(rock);
+    // Smaller accent rock
+    if(Math.random()>0.4){
+      const r2 = mkBox(0.8*s, 0.6*s, 0.7*s, 0x4a4a3a);
+      r2.position.set(rx+1.2*s, 0.3*s, rz+0.5);
+      r2.rotation.y = Math.random()*Math.PI;
+      addObj(r2);
+    }
+  }
+
+  // ════════════════════════════════════════
+  // 1. OCEAN WATER PLANE — dark water surrounding the island
+  // ════════════════════════════════════════
+  const waterGeo = new THREE.PlaneGeometry(ARENA*3, ARENA*3);
+  const waterMat = new THREE.MeshStandardMaterial({
+    color: 0x0a2030, roughness:0.3, metalness:0.2,
+    transparent:true, opacity:0.85
+  });
+  const water = new THREE.Mesh(waterGeo, waterMat);
+  water.rotation.x = -Math.PI/2;
+  water.position.y = -0.15;
+  water.receiveShadow = true;
+  addObj(water);
+
+  // Foam/shore ring — slightly brighter water at island edge
+  const shoreGeo = new THREE.RingGeometry(ARENA-4, ARENA+2, 48);
+  const shoreMat = new THREE.MeshBasicMaterial({
+    color: 0x2a5a6a, transparent:true, opacity:0.12, side: THREE.DoubleSide
+  });
+  const shore = new THREE.Mesh(shoreGeo, shoreMat);
+  shore.rotation.x = -Math.PI/2;
+  shore.position.y = 0.02;
+  addObj(shore);
+
+  // ════════════════════════════════════════
+  // 2. SPAWN BEACH (south, z:28-36) — sandy area
+  // ════════════════════════════════════════
+  const sandPatch = new THREE.Mesh(
+    new THREE.PlaneGeometry(24, 14),
+    new THREE.MeshStandardMaterial({color:0x8a7a52, roughness:0.95, metalness:0.0, transparent:true, opacity:0.6})
+  );
+  sandPatch.rotation.x = -Math.PI/2;
+  sandPatch.position.set(0, 0.02, 32);
+  addObj(sandPatch);
+
+  // Beached rowboat detail — planks + broken oar
+  const boatHull = mkBox(5, 0.6, 2, 0x5a4a30);
+  boatHull.position.set(0, 0.3, 35); boatHull.rotation.y=0.2; addObj(boatHull);
+  const boatSide1 = mkBox(5, 0.5, 0.15, 0x6a5a38);
+  boatSide1.position.set(0, 0.55, 34); boatSide1.rotation.y=0.2; boatSide1.rotation.z=-0.15; addObj(boatSide1);
+  const boatSide2 = mkBox(5, 0.5, 0.15, 0x6a5a38);
+  boatSide2.position.set(0, 0.55, 36); boatSide2.rotation.y=0.2; boatSide2.rotation.z=0.15; addObj(boatSide2);
+
+  // Supply crate at spawn — first weapon pickup
+  const spawnCrate = mkBox(2, 0.8, 2, 0x4a6a2a);
+  spawnCrate.position.set(7, 0.4, 30); addObj(spawnCrate);
+  const crateLid = mkBox(2.1, 0.1, 2.1, 0x3a5a1a);
+  crateLid.position.set(7, 0.85, 30); crateLid.rotation.z=0.08; addObj(crateLid);
+
+  // Driftwood log
+  const driftwood = mkBox(3, 0.5, 0.6, 0x6a5a40);
+  driftwood.position.set(-6, 0.25, 32); driftwood.rotation.y=0.6; addObj(driftwood);
+
+  // ════════════════════════════════════════
+  // 3. JUNGLE LOOP PATH — palm trees lining the wide trail
+  // ════════════════════════════════════════
+  // West palm line
+  buildPalmTree(-26, 26, 6.5, 0.12);
+  buildPalmTree(-34, 14, 7.0, -0.08);
+  buildPalmTree(-30, 0, 6.0, 0.1);
+  buildPalmTree(-36, -6, 5.5, -0.15);
+  buildPalmTree(-28, -16, 7.0, 0.06);
+  buildPalmTree(-24, -28, 6.5, -0.1);
+
+  // East palm line
+  buildPalmTree(26, 24, 6.0, -0.1);
+  buildPalmTree(34, 10, 7.5, 0.08);
+  buildPalmTree(30, -4, 6.5, -0.12);
+  buildPalmTree(34, -14, 5.5, 0.15);
+  buildPalmTree(26, -26, 6.0, -0.06);
+
+  // North connector palms (between watchtower and plane wreck)
+  buildPalmTree(-10, -34, 5.5, 0.1);
+  buildPalmTree(8, -36, 6.0, -0.08);
+
+  // South palms (near beach)
+  buildPalmTree(-14, 36, 5.0, 0.2);
+  buildPalmTree(14, 34, 5.5, -0.15);
+  buildPalmTree(-10, 28, 6.0, 0.1);
+  buildPalmTree(12, 26, 5.5, -0.12);
+
+  // Decorative rocks along jungle path edges (NO collision, just visual)
+  buildRock(-36, 20, 1.2);
+  buildRock(-38, -2, 1.0);
+  buildRock(36, 16, 1.1);
+  buildRock(38, -8, 1.3);
+  buildRock(-8, -38, 1.0);
+  buildRock(12, -38, 1.2);
+
+  // ════════════════════════════════════════
+  // 4. CENTRAL CAMP — fire pit, tents, supply crates
+  // ════════════════════════════════════════
+  // Fire pit ring detail
+  const firePit = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.0, 1.2, 0.4, 12),
+    new THREE.MeshStandardMaterial({color:0x3a3a30})
+  );
+  firePit.position.set(0, 0.2, 6); firePit.castShadow=true; addObj(firePit);
+  // Fire embers (glowing cube inside pit)
+  const embers = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.3, 0.8),
+    new THREE.MeshBasicMaterial({color:0xff4400, transparent:true, opacity:0.7})
+  );
+  embers.position.set(0, 0.3, 6); addObj(embers);
+
+  // Tent frame detail (open sides — NO camera obstruction)
+  for(const tent of [{x:-8,z:-4},{x:8,z:4}]){
+    // Poles
+    for(const dx of [-1.5, 1.5]){
+      for(const dz of [-1, 1]){
+        const pole = mkBox(0.12, 2.5, 0.12, 0x6a5a38);
+        pole.position.set(tent.x+dx, 1.25, tent.z+dz); addObj(pole);
+      }
+    }
+    // Canvas top (flat, no walls)
+    const canvas = mkBox(4, 0.1, 3, 0x5a6a3a);
+    canvas.position.set(tent.x, 2.5, tent.z); addObj(canvas);
+  }
+
+  // Supply table detail
+  const tableLeg1 = mkBox(0.15, 0.8, 0.15, 0x5a4a30);
+  tableLeg1.position.set(4, 0.4, -2.8); addObj(tableLeg1);
+  const tableLeg2 = mkBox(0.15, 0.8, 0.15, 0x5a4a30);
+  tableLeg2.position.set(6, 0.4, -1.2); addObj(tableLeg2);
+  const tableTop = mkBox(2.2, 0.12, 3.2, 0x6a5a38);
+  tableTop.position.set(5, 0.82, -2); addObj(tableTop);
+
+  // Ammo crate stack detail
+  const ammoCrate1 = mkBox(2.5, 0.5, 1.5, 0x4a5a2a);
+  ammoCrate1.position.set(-5, 0.25, 2); addObj(ammoCrate1);
+  const ammoCrate2 = mkBox(2.0, 0.5, 1.2, 0x3a4a1a);
+  ammoCrate2.position.set(-5, 0.75, 2); ammoCrate2.rotation.y=0.3; addObj(ammoCrate2);
+
+  // ════════════════════════════════════════
+  // 4b. WEST REST STOP — washed-up cargo container
+  // ════════════════════════════════════════
+  // Shipping container body — rusted metal
+  const container = mkBox(6, 2.2, 3, 0x5a3a2a);
+  container.position.set(-24, 1.1, 8); container.rotation.y=0.15; addObj(container);
+  // Container stripe (faded paint)
+  const cStripe = mkBox(6.05, 0.4, 3.05, 0x8a4a2a);
+  cStripe.position.set(-24, 1.8, 8); cStripe.rotation.y=0.15; addObj(cStripe);
+  // Rust patches
+  for(const rp of [{x:-22,z:7.2},{x:-26,z:8.8}]){
+    const rust = mkBox(1.2, 0.8, 0.08, 0x6a3a18);
+    rust.position.set(rp.x, 0.8, rp.z); addObj(rust);
+  }
+  // Spilled crate detail
+  const spillCrate = mkBox(2, 0.8, 2, 0x4a5a2a);
+  spillCrate.position.set(-20, 0.4, 12); spillCrate.rotation.y=0.6; addObj(spillCrate);
+  // Barnacle rock
+  const bRock = mkBox(2, 1.0, 1.5, 0x4a5a4a);
+  bRock.position.set(-28, 0.5, 10); bRock.rotation.y=1.1; addObj(bRock);
+  // Seaweed on container (green drape)
+  const seaweed = mkBox(2.5, 0.08, 1.5, 0x1a4a28);
+  seaweed.position.set(-24, 2.22, 8); seaweed.rotation.z=0.05; addObj(seaweed);
+
+  // ════════════════════════════════════════
+  // 4c. EAST REST STOP — collapsed research tent (perk machine area)
+  // ════════════════════════════════════════
+  // Collapsed tent — sagging canvas over bent poles (shifted to z:0)
+  const tentCanvas = mkBox(5, 0.12, 3.5, 0x6a7a5a);
+  tentCanvas.position.set(24, 1.6, 0); tentCanvas.rotation.z=0.12; tentCanvas.rotation.x=-0.08; addObj(tentCanvas);
+  // Bent tent poles sticking out
+  for(const pole of [{x:21.5,z:-1.5,lean:0.3},{x:26.5,z:1.5,lean:-0.25}]){
+    const p = mkBox(0.15, 2.5, 0.15, 0x8a8a8a);
+    p.position.set(pole.x, 1.25, pole.z); p.rotation.z=pole.lean; addObj(p);
+  }
+  // Equipment case (west of perk machine, clear gap)
+  const eqCase = mkBox(2, 0.8, 2, 0x3a4a3a);
+  eqCase.position.set(22, 0.4, 6); eqCase.rotation.y=0.4; addObj(eqCase);
+  // Overturned folding table
+  const foldTable = mkBox(2, 0.1, 2, 0x6a6a5a);
+  foldTable.position.set(22, 0.6, -4); foldTable.rotation.z=1.2; addObj(foldTable);
+  const foldLeg = mkBox(0.1, 1.0, 0.1, 0x8a8a8a);
+  foldLeg.position.set(22, 1.0, -4); foldLeg.rotation.z=1.2; addObj(foldLeg);
+  // Scattered papers/maps (flat white patches on ground)
+  for(const pp of [{x:23,z:-2},{x:25,z:1},{x:21,z:-1}]){
+    const paper = mkBox(0.5, 0.02, 0.7, 0xccccaa);
+    paper.position.set(pp.x, 0.02, pp.z); paper.rotation.y=Math.random()*Math.PI; addObj(paper);
+  }
+  // Broken radio equipment (small detail near tent)
+  const radio = mkBox(0.6, 0.4, 0.4, 0x2a2a2a);
+  radio.position.set(26, 0.2, -1); addObj(radio);
+  const antenna = mkBox(0.06, 1.2, 0.06, 0x8a8a8a);
+  antenna.position.set(26, 0.8, -1); antenna.rotation.z=0.3; addObj(antenna);
+
+  // ════════════════════════════════════════
+  // 5. WATCHTOWER HILL (northwest) — open top, wide slope
+  // ════════════════════════════════════════
+  // Wide slope visual — earth ramp (gentle, shifted east away from PaP zone)
+  const slope = mkBox(6, 0.5, 8, 0x2a3a18);
+  slope.position.set(-14, 0.25, -24); slope.rotation.x=-0.08; addObj(slope);
+
+  // Watchtower structure — open frame (NO walls, camera-safe) — moved to z:-26
+  // 4 corner posts
+  for(const dx of [-1, 1]){
+    for(const dz of [-1, 1]){
+      const post = mkBox(0.3, 6, 0.3, 0x5a4a28);
+      post.position.set(-20+dx*1.2, 3, -26+dz*1.2); addObj(post);
+    }
+  }
+  // Platform (at top)
+  const platform = mkBox(3.5, 0.2, 3.5, 0x4a3a20);
+  platform.position.set(-20, 5.0, -26); addObj(platform);
+  // Railing (open, low)
+  for(const side of [
+    {x:-20, z:-24.5, w:3.5, d:0.1},
+    {x:-20, z:-27.5, w:3.5, d:0.1},
+    {x:-18.5, z:-26, w:0.1, d:3.5},
+    {x:-21.5, z:-26, w:0.1, d:3.5},
+  ]){
+    const rail = mkBox(side.w, 0.6, side.d, 0x6a5a38);
+    rail.position.set(side.x, 5.5, side.z); addObj(rail);
+  }
+  // Signal lantern at top
+  const lantern = mkBox(0.4, 0.5, 0.4, 0x2a4a2a);
+  lantern.position.set(-20, 5.5, -26); addObj(lantern);
+  const lanternGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 6, 6),
+    new THREE.MeshBasicMaterial({color:0x44ff88, transparent:true, opacity:0.6})
+  );
+  lanternGlow.position.set(-20, 5.8, -26); addObj(lanternGlow);
+
+  // Supply barrels — moved far west, well clear of PaP
+  for(const b of [{x:-27,z:-24},{x:-26,z:-23}]){
+    const barrel = mkBox(0.8, 1.2, 0.8, 0x4a5a3a);
+    barrel.position.set(b.x, 0.6, b.z); addObj(barrel);
+  }
+
+  // ════════════════════════════════════════
+  // 6. PLANE WRECK AREA (northeast) — scattered debris
+  // ════════════════════════════════════════
+  // Main fuselage — detailed body
+  const fuselage = mkBox(8, 2.5, 4, 0x6a6a6a);
+  fuselage.position.set(18, 1.25, -20); fuselage.rotation.y=0.3; addObj(fuselage);
+  // Fuselage stripe
+  const stripe = mkBox(8.1, 0.3, 4.1, 0x2a4a8a);
+  stripe.position.set(18, 1.8, -20); stripe.rotation.y=0.3; addObj(stripe);
+  // Windows (dark dots on fuselage)
+  for(let w=0;w<5;w++){
+    const win = mkBox(0.3, 0.3, 0.05, 0x1a1a2a);
+    const wx = 15 + w*1.5;
+    win.position.set(wx, 2.0, -18.5); addObj(win);
+  }
+
+  // Detached wing
+  const wing = mkBox(3, 0.3, 5, 0x5a5a5a);
+  wing.position.set(26, 0.8, -24); wing.rotation.y=0.8; wing.rotation.z=0.15; addObj(wing);
+  // Wing engine
+  const engine = mkBox(1.2, 1.0, 1.2, 0x3a3a3a);
+  engine.position.set(26, 1.3, -22.5); addObj(engine);
+
+  // Tail section
+  const tail = mkBox(4, 1.0, 2.5, 0x5a5a5a);
+  tail.position.set(14, 0.5, -26); tail.rotation.y=-0.4; addObj(tail);
+  // Tail fin
+  const fin = mkBox(0.15, 2.5, 2.0, 0x4a4a4a);
+  fin.position.set(14, 1.8, -26); fin.rotation.y=-0.4; addObj(fin);
+  const finStripe = mkBox(0.17, 0.6, 2.0, 0x8a2222);
+  finStripe.position.set(14, 2.6, -26); finStripe.rotation.y=-0.4; addObj(finStripe);
+
+  // Scattered luggage
+  const suitcase1 = mkBox(1.0, 0.6, 0.7, 0x6a3a3a);
+  suitcase1.position.set(22, 0.3, -16); suitcase1.rotation.y=1.2; addObj(suitcase1);
+  const suitcase2 = mkBox(0.8, 0.5, 0.6, 0x3a3a6a);
+  suitcase2.position.set(23, 0.25, -17); suitcase2.rotation.y=0.5; addObj(suitcase2);
+
+  // Engine chunk with fire glow
+  const engChunk = mkBox(2, 1.0, 2, 0x3a3a3a);
+  engChunk.position.set(12, 0.5, -18); addObj(engChunk);
+  const sparks = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 4, 4),
+    new THREE.MeshBasicMaterial({color:0x66aaff, transparent:true, opacity:0.5})
+  );
+  sparks.position.set(12, 1.2, -18); addObj(sparks);
+
+  // ════════════════════════════════════════
+  // 7. BOUNDARY VEGETATION — dense jungle at edges (visual barrier)
+  // ════════════════════════════════════════
+  // Ring of jungle foliage bushes around the island perimeter
+  const bushCount = 28;
+  for(let i=0;i<bushCount;i++){
+    const angle = (i/bushCount)*Math.PI*2;
+    const radius = ARENA - 2 + Math.random()*3;
+    const bx = Math.cos(angle)*radius;
+    const bz = Math.sin(angle)*radius;
+    // Skip near spawn beach (south opening, z > 26)
+    if(bz > 26 && Math.abs(bx) < 16) continue;
+    const bw = 2+Math.random()*2, bh = 1.5+Math.random()*2, bd = 2+Math.random()*2;
+    const bush = mkBox(bw, bh, bd, 0x1a3a14 + Math.floor(Math.random()*0x0a0a0a));
+    bush.position.set(bx, bh/2, bz);
+    bush.rotation.y = Math.random()*Math.PI;
+    addObj(bush);
+  }
+
+  // Extra palm trees at boundary
+  for(let i=0;i<12;i++){
+    const angle = (i/12)*Math.PI*2;
+    const radius = ARENA - 1;
+    const tx = Math.cos(angle)*radius;
+    const tz = Math.sin(angle)*radius;
+    if(tz > 28 && Math.abs(tx) < 14) continue;
+    buildPalmTree(tx, tz, 5+Math.random()*3, (Math.random()-0.5)*0.2);
+  }
+}
+
+// ══════════════════════════════════════════════════
 // DARK CARNIVAL — custom decorations
 // ══════════════════════════════════════════════════
 function buildCarnivalDecorations(){
@@ -3383,7 +3826,7 @@ function buildGroundFog(cfg){
   _fogPlanes.length = 0;
   // Stack 3 semi-transparent fog planes at different heights
   const fogColors = {
-    farm: 0x1a2a1a, redline: 0x2a1a0a, carnival: 0x1a1028
+    farm: 0x1a2a1a, redline: 0x2a1a0a, island: 0x142a1e, carnival: 0x1a1028
   };
   const fogCol = fogColors[cfg.id] || 0x111111;
   const heights = [0.15, 0.6, 1.3];
@@ -3427,6 +3870,22 @@ function buildAtmosphericLights(mapId){
       {x:-22, y:1.5, z:-2, color:0xff4400, intensity:0.8, range:8, flicker:10, amount:0.5},
       // Garage light — blue-white
       {x:22, y:3.5, z:-8, color:0x88aaff, intensity:0.7, range:10, flicker:3, amount:0.15},
+    ],
+    island: [
+      // Central camp fire — warm orange flicker
+      {x:0, y:2, z:6, color:0xff8833, intensity:1.4, range:12, flicker:10, amount:0.6},
+      // Spawn beach — cold moonlight on sand
+      {x:0, y:3, z:32, color:0x88aacc, intensity:0.7, range:14, flicker:3, amount:0.15},
+      // Watchtower hill — signal lantern green
+      {x:-20, y:7, z:-26, color:0x44ff88, intensity:1.0, range:12, flicker:6, amount:0.4},
+      // West rest stop — dim rust-orange glow from container
+      {x:-24, y:2.5, z:8, color:0xcc6633, intensity:0.6, range:8, flicker:4, amount:0.2},
+      // East rest stop — broken radio static flicker (near perk machine)
+      {x:26, y:2, z:1, color:0x44ddaa, intensity:0.8, range:10, flicker:14, amount:0.5},
+      // Plane wreck — sparking electrical blue-white
+      {x:18, y:2, z:-20, color:0x66aaff, intensity:1.2, range:10, flicker:16, amount:0.7},
+      // Plane wreck fire — orange engine fire
+      {x:26, y:1.5, z:-24, color:0xff4400, intensity:0.9, range:8, flicker:12, amount:0.5},
     ],
     carnival: [
       // Ferris wheel — neon pink
@@ -8559,7 +9018,8 @@ document.querySelectorAll('.mbtn, .gbtn, .stab').forEach(btn => {
 const MAP_DISPLAY = {
   farm:    { icon: '🌾', name: 'THE FARM',              theme: 'Rural Horror',  desc: 'Moonlit farmstead with a cornfield, red barn, and old farmhouse. Watch the corn rows.', tag: 'CLASSIC' },
   redline: { icon: '🏚️', name: 'REDLINE TRAILER PARK', theme: 'Desert Wasteland', desc: 'Desolate roadside trailer park in a scorched desert. Gas station, diner, junkyard, and more.', tag: '' },
-  carnival: { icon: '🎪', name: 'DARK CARNIVAL', theme: 'Abandoned Fairground', desc: 'A neon-lit nightmare. Flickering rides, shattered booths, and the horde closing in from every direction.', tag: 'NEW' },
+  island:  { icon: '🏝️', name: 'DEAD TIDE ISLAND', theme: 'Tropical Nightmare', desc: 'A cursed island with a jungle loop trail, crashed plane wreck, and watchtower hill. The tide never stops.', tag: 'NEW' },
+  carnival: { icon: '🎪', name: 'DARK CARNIVAL', theme: 'Abandoned Fairground', desc: 'A neon-lit nightmare. Flickering rides, shattered booths, and the horde closing in from every direction.', tag: '' },
 };
 
 function renderMapGrid(){
@@ -9361,7 +9821,7 @@ function playFootstep(isSprinting){
   for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(sfxCtx.sampleRate*0.012));
   const src = sfxCtx.createBufferSource(); src.buffer=buf;
   // Map-specific surface sound
-  const freqMap = {farm: 400, redline: 900, carnival: 700};
+  const freqMap = {farm: 400, redline: 900, island: 500, carnival: 700};
   const freq = freqMap[selectedMapId] || 600;
   const bp = sfxCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=freq + Math.random()*200; bp.Q.value=1.5;
   src.connect(bp); bp.connect(master); src.start(t); src.stop(t+0.06);
@@ -9400,6 +9860,24 @@ function startAmbientDrone(mapId){
     osc.connect(_ambientDroneGain); osc2.connect(g2); g2.connect(_ambientDroneGain);
     osc.start(); osc2.start();
     _ambientDrone = {osc, osc2};
+  } else if(mapId === 'island'){
+    // Ocean waves + jungle wind — filtered noise with slow LFO
+    const buf = sfxCtx.createBuffer(1, sfxCtx.sampleRate*4, sfxCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const src = sfxCtx.createBufferSource(); src.buffer=buf; src.loop=true;
+    const lp = sfxCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=250;
+    // Slow wave-like LFO
+    const lfo = sfxCtx.createOscillator(); lfo.frequency.value=0.08;
+    const lfoGain = sfxCtx.createGain(); lfoGain.gain.value=180;
+    lfo.connect(lfoGain); lfoGain.connect(lp.frequency);
+    // Low ocean rumble
+    const osc = sfxCtx.createOscillator(); osc.type='sine'; osc.frequency.value=38;
+    const oscGain = sfxCtx.createGain(); oscGain.gain.value=0.35;
+    osc.connect(oscGain); oscGain.connect(_ambientDroneGain);
+    src.connect(lp); lp.connect(_ambientDroneGain);
+    src.start(); lfo.start(); osc.start();
+    _ambientDrone = {src, lfo, osc};
   } else if(mapId === 'carnival'){
     // Eerie low hum — dark ambient drone (no siren/calliope)
     const osc = sfxCtx.createOscillator(); osc.type='sine'; osc.frequency.value=42;
