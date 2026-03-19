@@ -662,7 +662,10 @@ canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh;z-index:0}
     <div class="gostat"><div class="v" id="goGames">0</div><div class="l">Games</div></div>
   </div>
   <div id="goNewBest" style="color:#ffdd00;font-size:16px;font-weight:700;text-shadow:0 0 12px rgba(255,200,0,.6);margin-top:6px;opacity:0;transition:opacity .3s">NEW PERSONAL BEST!</div>
-  <button class="gbtn" id="replayBtn">&#8635;&nbsp; PLAY AGAIN</button>
+  <div style="display:flex;gap:14px;margin-top:6px;justify-content:center;flex-wrap:wrap">
+    <button class="gbtn" id="replayBtn">&#8635;&nbsp; PLAY AGAIN</button>
+    <button class="gbtn" id="goMenuBtn" style="border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.8);box-shadow:0 0 15px rgba(255,255,255,.1)">&#8962;&nbsp; HOME MENU</button>
+  </div>
 </div>
 
 <!-- Pause Screen -->
@@ -6326,10 +6329,14 @@ function activatePowerup(pw){
   } else if(pw.id==='nuke'){
     // Instant: kill ALL zombies on the map right now
     addFeed('☢️ NUKE!');
-    for(const z of zombies){
-      if(!z.alive) continue;
-      const nukeDmg = z.boss ? Math.floor(z.maxHp * 0.3) : 999999;
-      damageZombie(z, nukeDmg);
+    // Only the host (or solo) actually damages zombies — clients just show effects
+    // and will receive zombie deaths via the normal zombie_update sync
+    if(mpMode !== 'client'){
+      for(const z of zombies){
+        if(!z.alive) continue;
+        const nukeDmg = z.boss ? Math.floor(z.maxHp * 0.3) : 999999;
+        damageZombie(z, nukeDmg);
+      }
     }
     triggerShake(0.5, 4); // big nuke screen shake
     triggerSlowMo(0.2, 1.0); // slowmo during nuke devastation
@@ -8999,6 +9006,15 @@ function goToMenu(){
 // Button wiring
 document.getElementById('playBtn').addEventListener('click', startGame);
 document.getElementById('replayBtn').addEventListener('click', startGame);
+document.getElementById('goMenuBtn').addEventListener('click', ()=>{
+  document.getElementById('goScreen').classList.add('off');
+  document.getElementById('hud').classList.remove('show');
+  document.getElementById('xhair').classList.remove('show');
+  goToMenu();
+  // Restart menu music
+  menuMusic.currentTime = 0;
+  menuMusic.play().catch(()=>{});
+});
 document.getElementById('resumeBtn').addEventListener('click', ()=>setPause(false));
 document.getElementById('restartBtn').addEventListener('click', ()=>{ paused=false; startGame(); });
 document.getElementById('menuBtn').addEventListener('click', goToMenu);
@@ -10039,7 +10055,7 @@ function showScreen(id){
 // MULTIPLAYER STATE
 // ══════════════════════════════════════════════════
 let socket;
-try { socket = io(); } catch(e) { console.warn('Socket.IO not available, multiplayer disabled.'); socket = { on(){}, emit(){}, disconnect(){}, connect(){} }; }
+try { socket = io({ transports: ['websocket'], upgrade: false, reconnectionDelay: 500, reconnectionDelayMax: 2000 }); } catch(e) { console.warn('Socket.IO not available, multiplayer disabled.'); socket = { on(){}, emit(){}, disconnect(){}, connect(){} }; }
 let mpMode      = 'solo';   // 'solo' | 'host' | 'client'
 let myName      = 'Player';
 let myColorIdx  = 0;
@@ -10578,8 +10594,8 @@ function tickMPSend(dt){
   mpSendT = 0;
   const g = currentGun();
   socket.emit('player_update', {
-    pos:        { x: pos.x, y: pos.y, z: pos.z },
-    rot:        playerMesh.rotation.y,
+    pos:        { x: +pos.x.toFixed(2), y: +pos.y.toFixed(2), z: +pos.z.toFixed(2) },
+    rot:        +playerMesh.rotation.y.toFixed(2),
     health:     health,
     gun:        g.key||'pistol',
     knifeActive,
@@ -10588,40 +10604,43 @@ function tickMPSend(dt){
     downed
   });
 
-  // Host broadcasts zombie positions ~20x/sec
+  // Host broadcasts zombie positions ~30x/sec
   if(isHost && zombies.length > 0){
     const zData = [];
+    const zNew = [];  // newly spawned zombies — full data, sent once
     for(let i=0;i<zombies.length;i++){
       const z = zombies[i];
-      // Only send alive zombies + recently-died zombies (to notify clients of death)
-      // Dead zombies keep sending for several ticks to guarantee delivery despite volatile drops
+      // Dead zombies: keep sending death state for several ticks to guarantee delivery
       if(!z.alive){
         if(!z._deathSendCount) z._deathSendCount = 0;
         z._deathSendCount++;
-        // Send death state for 15 ticks (~0.5s at 30Hz) to ensure client receives it
-        // even if some volatile packets are dropped
         if(z._deathSendCount > 15) continue;
+        // Minimal death packet: just index + alive flag
+        zData.push([i, 0, 0, 0, 0]);
+        continue;
       }
-      const entry = {
+      // First time this zombie is seen by clients — send full spawn data
+      if(!z._clientSynced){
+        z._clientSynced = true;
+        zNew.push({
+          i, hp:z.hp, maxHp:z.maxHp, speed:+z.speed.toFixed(1),
+          elite:!!z.elite, boss:!!z.boss, zType:z.zType||'normal',
+          meleeDmg:z.meleeDmg||10, bossName:z._bossName||''
+        });
+      }
+      // Compact position array: [index, x*100, z*100, ry*100, hp]
+      // Using integers is much smaller than float JSON keys
+      zData.push([
         i,
-        alive: z.alive,
-        x: +z.mesh.position.x.toFixed(2),
-        z: +z.mesh.position.z.toFixed(2),
-        ry: +z.mesh.rotation.y.toFixed(2),
-        hp: z.hp,
-        maxHp: z.maxHp,
-        speed: z.speed,
-        elite: !!z.elite,
-        boss: !!z.boss,
-        zType: z.zType || 'normal',
-        meleeDmg: z.meleeDmg||10,
-      };
-      if(z.boss) entry.bossName = z._bossName||'';
-      zData.push(entry);
+        Math.round(z.mesh.position.x * 100),
+        Math.round(z.mesh.position.z * 100),
+        Math.round(z.mesh.rotation.y * 100),
+        z.hp
+      ]);
     }
-    // Include total zombie count so clients can track wave progress
-    const pkt = { zombies: zData, totalCount: zombies.length };
-    // Include any pending powerup drops so clients get them in sync with zombie deaths
+    const pkt = { z: zData, tc: zombies.length };
+    if(zNew.length > 0) pkt.n = zNew;  // new zombie spawn info
+    // Include any pending powerup drops
     if(_pendingPwrDrops.length > 0){
       pkt.powerupDrops = _pendingPwrDrops.slice();
       _pendingPwrDrops.length = 0;
@@ -10637,10 +10656,11 @@ function tickRemotePlayers(dt){
     if(!rp.prevPos) rp.prevPos = {x: rp.mesh.position.x, z: rp.mesh.position.z};
     if(!rp.walkPhase) rp.walkPhase = 0;
 
-    // Smooth interpolation toward target position
+    // Smooth interpolation toward target position — fast convergence for responsive feel
     if(rp.targetPos){
-      rp.mesh.position.x += (rp.targetPos.x - rp.mesh.position.x) * Math.min(1, dt * 15);
-      rp.mesh.position.z += (rp.targetPos.z - rp.mesh.position.z) * Math.min(1, dt * 15);
+      const pLerp = Math.min(1, dt * 20);
+      rp.mesh.position.x += (rp.targetPos.x - rp.mesh.position.x) * pLerp;
+      rp.mesh.position.z += (rp.targetPos.z - rp.mesh.position.z) * pLerp;
     }
 
     // Detect movement speed for animations
@@ -10825,12 +10845,11 @@ function createClientZombieMesh(isElite, isBoss, zType){
 let _lastZombieUpdateT = 0; // track timing for velocity-based interpolation
 socket.on('zombie_update', data => {
   if(mpMode !== 'client') return; // only clients receive
-  const zArr = data.zombies;
   const now = performance.now();
-  const updateDt = _lastZombieUpdateT > 0 ? (now - _lastZombieUpdateT) / 1000 : 0.05;
+  const updateDt = _lastZombieUpdateT > 0 ? (now - _lastZombieUpdateT) / 1000 : 0.033;
   _lastZombieUpdateT = now;
 
-  // ── Process any powerup drops embedded in the zombie_update packet ──
+  // ── Process any powerup drops ──
   if(data.powerupDrops){
     for(const pd of data.powerupDrops){
       const pw = POWERUPS.find(p => p.id === pd.powerupId);
@@ -10839,71 +10858,71 @@ socket.on('zombie_update', data => {
   }
 
   // Ensure local array is large enough for all zombie indices from host
-  if(data.totalCount){
-    while(zombies.length < data.totalCount){
-      // Pre-fill with invisible placeholder — will be filled when first data arrives
-      const g = createClientZombieMesh(false, false, 'normal');
-      g.visible = false;
-      zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:false,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,_bossMesh:false,_zType:'normal',punchT:0,_targetX:0,_targetZ:0,_targetRY:0,_hasMesh:false});
+  const totalCount = data.tc || 0;
+  while(zombies.length < totalCount){
+    const g = createClientZombieMesh(false, false, 'normal');
+    g.visible = false;
+    zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:false,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,_bossMesh:false,_zType:'normal',punchT:0,_targetX:0,_targetZ:0,_targetRY:0,_hasMesh:false,_velX:0,_velZ:0});
+  }
+
+  // ── Process new zombie spawn data (full info, sent once per zombie) ──
+  if(data.n){
+    for(const ns of data.n){
+      while(zombies.length <= ns.i){
+        const g = createClientZombieMesh(false, false, 'normal');
+        g.visible = false;
+        zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:false,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,_bossMesh:false,_zType:'normal',punchT:0,_targetX:0,_targetZ:0,_targetRY:0,_hasMesh:false,_velX:0,_velZ:0});
+      }
+      const z = zombies[ns.i];
+      // Apply spawn properties
+      z.maxHp = ns.maxHp;
+      z.hp = ns.hp;
+      z.speed = ns.speed;
+      z.elite = ns.elite;
+      z.boss = ns.boss;
+      z.meleeDmg = ns.meleeDmg || 10;
+      z.atkCD = z.elite ? 1.0 : (z.boss ? 0.8 : 1.3);
+      const zt = ns.zType || (ns.elite ? 'elite' : (ns.boss ? 'boss' : 'normal'));
+      // Build correct mesh
+      scene.remove(z.mesh);
+      z.mesh = createClientZombieMesh(!!ns.elite, !!ns.boss, zt);
+      z._eliteMesh = !!ns.elite;
+      z._bossMesh = !!ns.boss;
+      z._zType = zt;
+      z._hasMesh = true;
+      z.alive = true;
+      scene.add(z.mesh);
+      // Boss setup
+      if(ns.boss){
+        activeBoss = z;
+        activeBoss._bossName = ns.bossName || 'THE ABOMINATION';
+        bossRoundActive = true;
+        updateBossHealthBar();
+      }
     }
   }
 
-  for(const zd of zArr){
-    // Grow local zombies array if needed — create placeholder meshes at the CORRECT position
-    while(zombies.length <= zd.i){
-      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
-      const g = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
-      g.position.set(zd.x, 0, zd.z); // spawn at actual position — no fly-through!
-      scene.add(g);
-      zombies.push({mesh:g,hp:zd.hp||100,maxHp:zd.maxHp||100,speed:zd.speed||2,atkT:0,atkCD:1.3,alive:true,legPhase:Math.random()*Math.PI*2,_eliteMesh:!!zd.elite,_bossMesh:!!zd.boss,_zType:zt,punchT:0,_targetX:zd.x,_targetZ:zd.z,_targetRY:zd.ry||0,_hasMesh:true,_velX:0,_velZ:0});
-    }
-    const z = zombies[zd.i];
+  // ── Process compact position updates: [index, x*100, z*100, ry*100, hp] ──
+  const zArr = data.z;
+  if(!zArr) return;
+  for(let j = 0; j < zArr.length; j++){
+    const row = zArr[j];
+    const idx = row[0];
+    if(idx >= zombies.length) continue;
+    const z = zombies[idx];
+    const rawX  = row[1] / 100;
+    const rawZ  = row[2] / 100;
+    const rawRY = row[3] / 100;
+    const rawHp = row[4];
+    const isAlive = rawHp > 0; // dead zombies sent as hp=0
 
-    // First time seeing this zombie — initialize it with correct mesh
-    if(!z._hasMesh && zd.alive){
-      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
-      scene.remove(z.mesh);
-      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
-      z.mesh.position.set(zd.x, 0, zd.z);
-      z._eliteMesh = !!zd.elite;
-      z._bossMesh = !!zd.boss;
-      z._zType = zt;
-      z._hasMesh = true;
-      z.alive = true;
-      scene.add(z.mesh);
-      z._targetX = zd.x;
-      z._targetZ = zd.z;
-      z._targetRY = zd.ry || 0;
-      z._velX = 0; z._velZ = 0;
-    }
-
-    if(zd.alive && !z.alive){
-      // Zombie respawned or was just created — snap to correct position immediately
-      z.alive = true;
-      z._hasMesh = true;
-      // Rebuild mesh with correct type
-      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
-      scene.remove(z.mesh);
-      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
-      z._eliteMesh = !!zd.elite;
-      z._bossMesh = !!zd.boss;
-      z._zType = zt;
-      z.mesh.position.set(zd.x, 0, zd.z);
-      z._targetX = zd.x;
-      z._targetZ = zd.z;
-      z._targetRY = zd.ry || 0;
-      z._velX = 0; z._velZ = 0;
-      scene.add(z.mesh);
-    }
-    if(!zd.alive && z.alive){
-      // Zombie died on host — remove it visually
+    // ── Death transition ──
+    if(!isAlive && z.alive){
       z.alive = false;
       bloodBurst(z.mesh.position.clone().add(new THREE.Vector3(0,1,0)), 0x880000);
       deathBurst(z.mesh.position.clone().add(new THREE.Vector3(0,0.5,0)));
       spawnCorpse(z.mesh);
-      // Hide the mesh (don't remove from scene so slot stays valid)
       z.mesh.visible = false;
-      // Still count kills/score for the client display
       kills++; zombsLeft = Math.max(0, zombsLeft-1);
       const cMult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
       const dpMult2 = pwrState.doublePoints > 0 ? 2 : 1;
@@ -10912,53 +10931,40 @@ socket.on('zombie_update', data => {
       const cPrefix = z.boss ? '☠ BOSS KILLED  ' : (z.elite ? '💀 ELITE KILLED  ' : '');
       const dpTag2 = dpMult2 > 1 ? ' (2x!)' : '';
       addFeedSafe(cPrefix+'+'+pts+' pts  +'+earn+' credits'+dpTag2);
-      // Boss death on client: hide health bar
       if(z.boss){ activeBoss=null; bossRoundActive=false; document.getElementById('bossBar').classList.remove('on'); }
       updateHUD();
       continue;
     }
-    if(!zd.alive) continue;
+    if(!isAlive) continue; // already dead, skip
 
-    // Calculate velocity for dead-reckoning interpolation (smoother than pure lerp)
-    if(updateDt > 0.001){
-      z._velX = (zd.x - z._targetX) / updateDt;
-      z._velZ = (zd.z - z._targetZ) / updateDt;
-    }
-    // Store target positions — actual interpolation happens every frame in tickClientZombies
-    z._targetX = zd.x;
-    z._targetZ = zd.z;
-    z._targetRY = zd.ry;
-    z._lastUpdateT = now; // timestamp for dead-reckoning
-    z.hp = zd.hp;
-    z.maxHp = zd.maxHp;
-    z.speed = zd.speed;
-    z.elite = zd.elite;
-    z.boss = zd.boss;
-    z.meleeDmg = zd.meleeDmg || 10;
-
-    // Boss sync: track activeBoss on client for health bar
-    if(zd.boss && z.alive){
-      activeBoss = z;
-      activeBoss._bossName = zd.bossName || 'THE ABOMINATION';
-      bossRoundActive = true;
-      updateBossHealthBar();
+    // ── First-time activation (placeholder → real) ──
+    if(!z._hasMesh || !z.alive){
+      z.alive = true;
+      z._hasMesh = true;
+      z.mesh.visible = true;
+      z.mesh.position.set(rawX, 0, rawZ);
+      z.mesh.rotation.y = rawRY;
+      if(!z.mesh.parent) scene.add(z.mesh);
+      z._targetX = rawX; z._targetZ = rawZ; z._targetRY = rawRY;
+      z._velX = 0; z._velZ = 0;
+      z._lastUpdateT = now;
+      z.hp = rawHp;
+      continue;
     }
 
-    // FIX: Rebuild mesh when elite/boss/zType status changes so clients SEE correct zombie type
-    const zt2 = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
-    const needsRebuild = (!!zd.elite !== !!z._eliteMesh) || (!!zd.boss !== !!z._bossMesh) || (zt2 !== z._zType);
-    if(needsRebuild){
-      const oldPos = z.mesh.position.clone();
-      const oldRot = z.mesh.rotation.y;
-      scene.remove(z.mesh);
-      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt2);
-      z.mesh.position.copy(oldPos);
-      z.mesh.rotation.y = oldRot;
-      if(z.alive) scene.add(z.mesh);
-      z._eliteMesh = !!zd.elite;
-      z._bossMesh = !!zd.boss;
-      z._zType = zt2;
+    // ── Normal position update — compute velocity for dead-reckoning ──
+    if(updateDt > 0.005){
+      z._velX = (rawX - z._targetX) / updateDt;
+      z._velZ = (rawZ - z._targetZ) / updateDt;
     }
+    z._targetX = rawX;
+    z._targetZ = rawZ;
+    z._targetRY = rawRY;
+    z._lastUpdateT = now;
+    z.hp = rawHp;
+
+    // Boss health bar sync
+    if(z.boss && z.alive){ updateBossHealthBar(); }
   }
 });
 
