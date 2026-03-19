@@ -7903,6 +7903,12 @@ function tick(dt,ts){
     tickBuyPromptRevive();
     tickRemotePlayers(dt);
     tickMPSend(dt);
+    tickClientZombies(dt);
+    // FIX: Host must keep running zombie AI + wave logic while downed, otherwise
+    // zombies freeze for all players and waves stop progressing
+    if(isHost){
+      tickHostZombiesWhileDead(dt, performance.now());
+    }
     return;
   }
 
@@ -8743,6 +8749,8 @@ function tickHostZombiesWhileDead(dt, ts){
   const aliveZ=zombies.filter(z=>z.alive).length;
   if(waveActive && aliveZ===0 && zombsLeft<=0){
     waveActive=false; waveDelay=4; score+=500+wave*200; updateHUD();
+    // Clean up boss state on wave end
+    if(activeBoss){ activeBoss=null; bossRoundActive=false; document.getElementById('bossBar').classList.remove('on'); }
     if(mpMode !== 'solo' && isHost){
       socket.emit('wave_event', { type:'wave_end', wave });
     }
@@ -10561,12 +10569,12 @@ socket.on('feed_msg', ({ name, text }) => {
   addFeedSafe('['+name+'] '+text);
 });
 
-// ── Broadcast local player state ~20x/sec ─────────────
+// ── Broadcast local player state ~30x/sec ─────────────
 let mpSendT = 0;
 function tickMPSend(dt){
   if(mpMode === 'solo') return;
   mpSendT += dt;
-  if(mpSendT < 0.05) return;
+  if(mpSendT < 0.033) return; // ~30Hz for smoother multiplayer
   mpSendT = 0;
   const g = currentGun();
   socket.emit('player_update', {
@@ -10585,24 +10593,35 @@ function tickMPSend(dt){
     const zData = [];
     for(let i=0;i<zombies.length;i++){
       const z = zombies[i];
-      zData.push({
+      // Only send alive zombies + recently-died zombies (to notify clients of death)
+      // Dead zombies keep sending for several ticks to guarantee delivery despite volatile drops
+      if(!z.alive){
+        if(!z._deathSendCount) z._deathSendCount = 0;
+        z._deathSendCount++;
+        // Send death state for 15 ticks (~0.5s at 30Hz) to ensure client receives it
+        // even if some volatile packets are dropped
+        if(z._deathSendCount > 15) continue;
+      }
+      const entry = {
         i,
         alive: z.alive,
-        x: z.mesh.position.x,
-        y: z.mesh.position.y,
-        z: z.mesh.position.z,
-        ry: z.mesh.rotation.y,
+        x: +z.mesh.position.x.toFixed(2),
+        z: +z.mesh.position.z.toFixed(2),
+        ry: +z.mesh.rotation.y.toFixed(2),
         hp: z.hp,
         maxHp: z.maxHp,
         speed: z.speed,
         elite: !!z.elite,
         boss: !!z.boss,
+        zType: z.zType || 'normal',
         meleeDmg: z.meleeDmg||10,
-        bossName: z._bossName||''
-      });
+      };
+      if(z.boss) entry.bossName = z._bossName||'';
+      zData.push(entry);
     }
+    // Include total zombie count so clients can track wave progress
+    const pkt = { zombies: zData, totalCount: zombies.length };
     // Include any pending powerup drops so clients get them in sync with zombie deaths
-    const pkt = { zombies: zData };
     if(_pendingPwrDrops.length > 0){
       pkt.powerupDrops = _pendingPwrDrops.slice();
       _pendingPwrDrops.length = 0;
@@ -10689,8 +10708,9 @@ function addFeedSafe(txt){ try{ addFeed(txt); }catch(e){} }
 // ══════════════════════════════════════════════════
 // CLIENT-SIDE: RECEIVE ZOMBIE SYNC FROM HOST
 // ══════════════════════════════════════════════════
-// ── FIX: Create zombie mesh that matches elite/normal status for clients ──
-function createClientZombieMesh(isElite, isBoss){
+// ── FIX: Create zombie mesh that matches elite/normal/runner/bloater/boss status for clients ──
+function createClientZombieMesh(isElite, isBoss, zType){
+  zType = zType || (isElite ? 'elite' : (isBoss ? 'boss' : 'normal'));
   const g = new THREE.Group();
   if(isBoss){
     // ── BOSS: massive dark red brute (matches host spawnBossZombie) ──
@@ -10734,6 +10754,50 @@ function createClientZombieMesh(isElite, isBoss){
     }
     const eliteGlow = new THREE.PointLight(0xff44ff, 0.6, 4);
     eliteGlow.position.set(0, 1.5*scale, 0); g.add(eliteGlow);
+  } else if(zType === 'runner'){
+    // ── RUNNER: thin, hunched, fast — tattered pale appearance (matches host spawnZombie) ──
+    const skin=[0x9a7a5a,0x8a6a4a,0xaa8a6a][Math.floor(Math.random()*3)];
+    const cloth=[0x4a4040,0x3a3030,0x5a4848][Math.floor(Math.random()*3)];
+    const zb=mkBox(.45,.85,.30,cloth); zb.position.y=.78; g.add(zb);
+    const zh=mkBox(.36,.36,.36,skin);  zh.position.y=1.38; g.add(zh);
+    g.rotation.x = -0.2; // hunched
+    const zllPiv=new THREE.Group(); zllPiv.position.set(-.14,.50,0); g.add(zllPiv);
+    const zll=mkBox(.16,.55,.16,cloth); zll.position.set(0,-.28,0); zllPiv.add(zll);
+    const zlrPiv=new THREE.Group(); zlrPiv.position.set(.14,.50,0); g.add(zlrPiv);
+    const zlr=mkBox(.16,.55,.16,cloth); zlr.position.set(0,-.28,0); zlrPiv.add(zlr);
+    g.userData.legL = zllPiv;
+    g.userData.legR = zlrPiv;
+    for(const s of[-1,1]){
+      const arm=mkBox(.14,.50,.14,skin); arm.position.set(s*.40,.88,-.22); arm.rotation.x=-.8; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
+    }
+    for(const ex of[-.08,.08]){
+      const eye=new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.04),new THREE.MeshStandardMaterial({color:0xff6600,emissive:0xff6600,emissiveIntensity:2.5}));
+      eye.position.set(ex,1.42,-.19); g.add(eye);
+    }
+  } else if(zType === 'bloater'){
+    // ── BLOATER: wide, squat, greenish (matches host spawnZombie) ──
+    const skin=[0x5a6a3a,0x4a5a2a,0x6a7a4a][Math.floor(Math.random()*3)];
+    const bulge=[0x3a4a1a,0x2a3a0a,0x4a5a2a][Math.floor(Math.random()*3)];
+    const zb=mkBox(.95,.80,.55,skin); zb.position.y=.72; g.add(zb);
+    const belly=mkBox(.70,.50,.45,bulge); belly.position.set(0,.65,-.15); g.add(belly);
+    const zh=mkBox(.44,.38,.44,skin); zh.position.y=1.30; g.add(zh);
+    const zllPiv=new THREE.Group(); zllPiv.position.set(-.24,.48,0); g.add(zllPiv);
+    const zll=mkBox(.24,.52,.24,skin); zll.position.set(0,-.26,0); zllPiv.add(zll);
+    const zlrPiv=new THREE.Group(); zlrPiv.position.set(.24,.48,0); g.add(zlrPiv);
+    const zlr=mkBox(.24,.52,.24,skin); zlr.position.set(0,-.26,0); zlrPiv.add(zlr);
+    g.userData.legL = zllPiv;
+    g.userData.legR = zlrPiv;
+    for(const s of[-1,1]){
+      const arm=mkBox(.22,.45,.22,skin); arm.position.set(s*.60,.85,-.10); arm.rotation.x=-.4; g.add(arm);
+      if(s===-1) g.userData.armL = arm; else g.userData.armR = arm;
+    }
+    for(const ex of[-.10,.10]){
+      const eye=new THREE.Mesh(new THREE.BoxGeometry(.08,.06,.04),new THREE.MeshStandardMaterial({color:0x44ff44,emissive:0x44ff44,emissiveIntensity:2.0}));
+      eye.position.set(ex,1.34,-.22); g.add(eye);
+    }
+    const bloaterGlow = new THREE.PointLight(0x44ff44, 0.3, 3);
+    bloaterGlow.position.set(0, 0.8, 0); g.add(bloaterGlow);
   } else {
     // Normal zombie (matches host spawnZombie normal path)
     const skin=[0x8a5a3a,0x7a4a2a,0x9a5a40][Math.floor(Math.random()*3)];
@@ -10758,9 +10822,13 @@ function createClientZombieMesh(isElite, isBoss){
   return g;
 }
 
+let _lastZombieUpdateT = 0; // track timing for velocity-based interpolation
 socket.on('zombie_update', data => {
   if(mpMode !== 'client') return; // only clients receive
   const zArr = data.zombies;
+  const now = performance.now();
+  const updateDt = _lastZombieUpdateT > 0 ? (now - _lastZombieUpdateT) / 1000 : 0.05;
+  _lastZombieUpdateT = now;
 
   // ── Process any powerup drops embedded in the zombie_update packet ──
   if(data.powerupDrops){
@@ -10770,23 +10838,61 @@ socket.on('zombie_update', data => {
     }
   }
 
+  // Ensure local array is large enough for all zombie indices from host
+  if(data.totalCount){
+    while(zombies.length < data.totalCount){
+      // Pre-fill with invisible placeholder — will be filled when first data arrives
+      const g = createClientZombieMesh(false, false, 'normal');
+      g.visible = false;
+      zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:false,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,_bossMesh:false,_zType:'normal',punchT:0,_targetX:0,_targetZ:0,_targetRY:0,_hasMesh:false});
+    }
+  }
+
   for(const zd of zArr){
     // Grow local zombies array if needed — create placeholder meshes at the CORRECT position
     while(zombies.length <= zd.i){
-      const g = createClientZombieMesh(false);
+      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
+      const g = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
       g.position.set(zd.x, 0, zd.z); // spawn at actual position — no fly-through!
       scene.add(g);
-      zombies.push({mesh:g,hp:100,maxHp:100,speed:2,atkT:0,atkCD:1.3,alive:true,legPhase:Math.random()*Math.PI*2,_eliteMesh:false,punchT:0,_targetX:zd.x,_targetZ:zd.z,_targetRY:zd.ry||0});
+      zombies.push({mesh:g,hp:zd.hp||100,maxHp:zd.maxHp||100,speed:zd.speed||2,atkT:0,atkCD:1.3,alive:true,legPhase:Math.random()*Math.PI*2,_eliteMesh:!!zd.elite,_bossMesh:!!zd.boss,_zType:zt,punchT:0,_targetX:zd.x,_targetZ:zd.z,_targetRY:zd.ry||0,_hasMesh:true,_velX:0,_velZ:0});
     }
     const z = zombies[zd.i];
+
+    // First time seeing this zombie — initialize it with correct mesh
+    if(!z._hasMesh && zd.alive){
+      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
+      scene.remove(z.mesh);
+      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
+      z.mesh.position.set(zd.x, 0, zd.z);
+      z._eliteMesh = !!zd.elite;
+      z._bossMesh = !!zd.boss;
+      z._zType = zt;
+      z._hasMesh = true;
+      z.alive = true;
+      scene.add(z.mesh);
+      z._targetX = zd.x;
+      z._targetZ = zd.z;
+      z._targetRY = zd.ry || 0;
+      z._velX = 0; z._velZ = 0;
+    }
+
     if(zd.alive && !z.alive){
       // Zombie respawned or was just created — snap to correct position immediately
       z.alive = true;
-      z.mesh.visible = true;
+      z._hasMesh = true;
+      // Rebuild mesh with correct type
+      const zt = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
+      scene.remove(z.mesh);
+      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt);
+      z._eliteMesh = !!zd.elite;
+      z._bossMesh = !!zd.boss;
+      z._zType = zt;
       z.mesh.position.set(zd.x, 0, zd.z);
       z._targetX = zd.x;
       z._targetZ = zd.z;
       z._targetRY = zd.ry || 0;
+      z._velX = 0; z._velZ = 0;
       scene.add(z.mesh);
     }
     if(!zd.alive && z.alive){
@@ -10795,10 +10901,8 @@ socket.on('zombie_update', data => {
       bloodBurst(z.mesh.position.clone().add(new THREE.Vector3(0,1,0)), 0x880000);
       deathBurst(z.mesh.position.clone().add(new THREE.Vector3(0,0.5,0)));
       spawnCorpse(z.mesh);
-      // Replace mesh so this zombie slot can be reused
-      z.mesh = createClientZombieMesh(!!z.elite, !!z.boss);
-      z._eliteMesh = !!z.elite;
-      z._bossMesh = !!z.boss;
+      // Hide the mesh (don't remove from scene so slot stays valid)
+      z.mesh.visible = false;
       // Still count kills/score for the client display
       kills++; zombsLeft = Math.max(0, zombsLeft-1);
       const cMult = z.boss ? BOSS_POINTS_MULT : (z.elite ? 3 : 1);
@@ -10814,10 +10918,17 @@ socket.on('zombie_update', data => {
       continue;
     }
     if(!zd.alive) continue;
+
+    // Calculate velocity for dead-reckoning interpolation (smoother than pure lerp)
+    if(updateDt > 0.001){
+      z._velX = (zd.x - z._targetX) / updateDt;
+      z._velZ = (zd.z - z._targetZ) / updateDt;
+    }
     // Store target positions — actual interpolation happens every frame in tickClientZombies
     z._targetX = zd.x;
     z._targetZ = zd.z;
     z._targetRY = zd.ry;
+    z._lastUpdateT = now; // timestamp for dead-reckoning
     z.hp = zd.hp;
     z.maxHp = zd.maxHp;
     z.speed = zd.speed;
@@ -10833,18 +10944,20 @@ socket.on('zombie_update', data => {
       updateBossHealthBar();
     }
 
-    // FIX: Rebuild mesh when elite/boss status changes so clients SEE correct zombie type
-    const needsRebuild = (!!zd.elite !== !!z._eliteMesh) || (!!zd.boss !== !!z._bossMesh);
+    // FIX: Rebuild mesh when elite/boss/zType status changes so clients SEE correct zombie type
+    const zt2 = zd.zType || (zd.elite ? 'elite' : (zd.boss ? 'boss' : 'normal'));
+    const needsRebuild = (!!zd.elite !== !!z._eliteMesh) || (!!zd.boss !== !!z._bossMesh) || (zt2 !== z._zType);
     if(needsRebuild){
       const oldPos = z.mesh.position.clone();
       const oldRot = z.mesh.rotation.y;
       scene.remove(z.mesh);
-      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss);
+      z.mesh = createClientZombieMesh(!!zd.elite, !!zd.boss, zt2);
       z.mesh.position.copy(oldPos);
       z.mesh.rotation.y = oldRot;
       if(z.alive) scene.add(z.mesh);
       z._eliteMesh = !!zd.elite;
       z._bossMesh = !!zd.boss;
+      z._zType = zt2;
     }
   }
 });
@@ -10852,13 +10965,25 @@ socket.on('zombie_update', data => {
 // ── Client: smooth zombie interpolation every frame (60fps) ──────────
 function tickClientZombies(dt){
   if(mpMode !== 'client') return;
-  const lerpRate = Math.min(1, dt * 12); // smooth ~12x/sec convergence
+  const now = performance.now();
   for(const z of zombies){
     if(!z.alive) continue;
     if(z._targetX !== undefined){
-      z.mesh.position.x += (z._targetX - z.mesh.position.x) * lerpRate;
-      z.mesh.position.z += (z._targetZ - z.mesh.position.z) * lerpRate;
-      z.mesh.rotation.y = z._targetRY;
+      // Dead-reckoning + lerp hybrid: predict position based on velocity, then blend toward target
+      // This makes zombies move smoothly even between network updates
+      const timeSinceUpdate = z._lastUpdateT ? (now - z._lastUpdateT) / 1000 : 0;
+      // Predicted position = target + velocity * time since last update (clamped to prevent overshoot)
+      const predX = z._targetX + (z._velX || 0) * Math.min(timeSinceUpdate, 0.1);
+      const predZ = z._targetZ + (z._velZ || 0) * Math.min(timeSinceUpdate, 0.1);
+      // Fast convergence toward predicted position
+      const lerpRate = Math.min(1, dt * 18);
+      z.mesh.position.x += (predX - z.mesh.position.x) * lerpRate;
+      z.mesh.position.z += (predZ - z.mesh.position.z) * lerpRate;
+      // Smooth rotation interpolation instead of snapping
+      let rotDiff = z._targetRY - z.mesh.rotation.y;
+      while(rotDiff > Math.PI) rotDiff -= Math.PI*2;
+      while(rotDiff < -Math.PI) rotDiff += Math.PI*2;
+      z.mesh.rotation.y += rotDiff * Math.min(1, dt * 12);
     }
     // Leg animation — every frame for smooth walking
     z.legPhase += dt * z.speed * 3;
@@ -11067,6 +11192,7 @@ function startGameMP(spawnPos){
   for(const b of bullets) returnBulletToPool(b.mesh);
   for(const p of particles) scene.remove(p.mesh);
   zombies.length=0; bullets.length=0; particles.length=0;
+  _lastZombieUpdateT = 0; // reset zombie sync timing for new game
   // Clear corpses
   for(const c of _corpses) scene.remove(c.mesh);
   _corpses.length=0;
